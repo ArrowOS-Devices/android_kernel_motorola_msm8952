@@ -707,4 +707,12 @@ config MSM_VSENS
 
 source "drivers/soc/qcom/memshare/Kconfig"
 
+config MMI_DEVICE_DTBS
+ 	depends on ARCH_MSM
+ 	default n
+ 	bool "Motorola Mobility Device DTBs"
+ 	help
+ 	  Only include Motorola device specific DTBs to limit the number that
+	  get built during kernel compilation.
+
 endif # ARCH_MSM
