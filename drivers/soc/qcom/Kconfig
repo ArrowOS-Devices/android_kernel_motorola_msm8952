@@ -715,4 +715,12 @@ config MMI_DEVICE_DTBS
  	  Only include Motorola device specific DTBs to limit the number that
 	  get built during kernel compilation.
 
+config BOOTINFO
+	bool "Boot Information Feature"
+	default n
+	help
+	  This feature provides access to certain boot information
+	  from both kernel context (via function call) and user
+	  context (via /proc/bootinfo).
+
 endif # ARCH_MSM
