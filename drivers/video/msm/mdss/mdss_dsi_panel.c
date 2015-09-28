@@ -25,6 +25,7 @@
 #include <linux/uaccess.h>
 #include <linux/msm_mdp.h>
 
+#include "mdss_fb.h"
 #include "mdss_dsi.h"
 #include "mdss_dba_utils.h"
 
@@ -911,6 +912,23 @@ end:
 	return 0;
 }
 
+static void mdss_dsi_panel_off_in_prog_notify(struct mdss_panel_data *pdata,
+					struct mdss_panel_info *pinfo)
+{
+	struct fb_event event;
+	int blank;
+	struct fb_info *fbi;
+
+	if (!pinfo->blank_progress_notify_enabled)
+		return;
+
+	fbi = pdata->mfd->fbi;
+	blank = FB_BLANK_POWERDOWN;
+	event.info = fbi;
+	event.data = &blank;
+	fb_notifier_call_chain(FB_IN_PROGRESS_EVENT_BLANK, &event);
+}
+
 static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
@@ -939,6 +957,8 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		mdss_dba_utils_video_off(pinfo->dba_data);
 		mdss_dba_utils_hdcp_enable(pinfo->dba_data, false);
 	}
+
+	mdss_dsi_panel_off_in_prog_notify(pdata, pinfo);
 
 end:
 	pr_debug("%s:-\n", __func__);
@@ -2530,6 +2550,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	pinfo->is_dba_panel = of_property_read_bool(np,
 			"qcom,dba-panel");
+
+	pinfo->blank_progress_notify_enabled = of_property_read_bool(np,
+				"qcom,mdss-dsi-use-blank-in-progress-notifier");
 
 	return 0;
 
