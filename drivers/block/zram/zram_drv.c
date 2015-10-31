@@ -869,6 +869,14 @@ static ssize_t disksize_store(struct device *dev,
 	struct zram *zram = dev_to_zram(dev);
 	int err;
 
+	down_read(&zram->init_lock);
+	if (init_done(zram)) {
+		up_read(&zram->init_lock);
+		pr_info("Cannot change disksize for initialized device\n");
+		return -EBUSY;
+	}
+	up_read(&zram->init_lock);
+
 	disksize = memparse(buf, NULL);
 	if (!disksize)
 		return -EINVAL;
@@ -887,12 +895,6 @@ static ssize_t disksize_store(struct device *dev,
 	}
 
 	down_write(&zram->init_lock);
-	if (init_done(zram)) {
-		pr_info("Cannot change disksize for initialized device\n");
-		err = -EBUSY;
-		goto out_destroy_comp;
-	}
-
 	zram->meta = meta;
 	zram->comp = comp;
 	zram->disksize = disksize;
@@ -910,9 +912,6 @@ static ssize_t disksize_store(struct device *dev,
 
 	return len;
 
-out_destroy_comp:
-	up_write(&zram->init_lock);
-	zcomp_destroy(comp);
 out_free_meta:
 	zram_meta_free(meta, disksize);
 	return err;
