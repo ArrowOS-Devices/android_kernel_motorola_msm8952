@@ -235,6 +235,13 @@ config MSM_FD
 	 ---help---
 	    Enables support for the MSM FD face detection engine.
 
+config DEBUG_CAMERA
+	bool "Enable Camera Debug"
+	depends on MSMB_CAMERA && DEBUG_FS
+	default n
+	---help---
+		Enable camera debug support.
+
 config MSM_JPEGDMA
 	tristate "Qualcomm Technologies Inc. MSM Jpeg dma"
         depends on MSMB_CAMERA
