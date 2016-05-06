@@ -2468,6 +2468,12 @@ if FB || SGI_NEWPORT_CONSOLE
 	source "drivers/video/logo/Kconfig"
 endif
 
+config PANEL_NOTIFICATIONS
+	bool 'Panel notifications'
+	default n
+	---help---
+	Panel notifications framework
+
 config FB_SH_MOBILE_MERAM
 	tristate "SuperH Mobile MERAM read ahead support"
 	depends on (SUPERH || ARCH_SHMOBILE)
