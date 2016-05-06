@@ -26,6 +26,7 @@
 #include <linux/msm_mdp.h>
 #include <linux/jiffies.h>
 #include <linux/ktime.h>
+#include <linux/panel_notifier.h>
 
 #include "mdss_dsi.h"
 #include "mdss_dba_utils.h"
@@ -930,6 +931,8 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 		goto end;
 	}
 
+	panel_notify(PANEL_EVENT_PRE_DISPLAY_ON, pinfo);
+
 	on_cmds = &ctrl->on_cmds;
 
 	if ((pinfo->mipi.dms_mode == DYNAMIC_MODE_SWITCH_IMMEDIATE) &&
@@ -961,6 +964,8 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 		}
 	} else
 		panel_recovery_retry = 0;
+
+	panel_notify(PANEL_EVENT_DISPLAY_ON, pinfo);
 
 end:
 	if (!ctrl->ndx)
@@ -1055,6 +1060,8 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 			goto end;
 	}
 
+	panel_notify(PANEL_EVENT_PRE_DISPLAY_OFF, pinfo);
+
 	if (ctrl->off_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds, CMD_REQ_COMMIT);
 
@@ -1062,6 +1069,8 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		mdss_dba_utils_video_off(pinfo->dba_data);
 		mdss_dba_utils_hdcp_enable(pinfo->dba_data, false);
 	}
+
+	panel_notify(PANEL_EVENT_DISPLAY_OFF, pinfo);
 
 end:
 	mdss_dsi_panel_off_in_prog_notify(pdata, pinfo);
