@@ -563,7 +563,8 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 			atomic_inc(&ctx->pp_done_cnt);
 			status = mdss_mdp_ctl_perf_get_transaction_status(ctl);
 			if (status == 0)
-				schedule_work(&ctx->pp_done_work);
+				if (!ctl->commit_in_progress)
+					schedule_work(&ctx->pp_done_work);
 		}
 		wake_up_all(&ctx->pp_waitq);
 	} else if (!ctl->cmd_autorefresh_en) {
