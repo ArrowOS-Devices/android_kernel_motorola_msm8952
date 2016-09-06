@@ -4848,7 +4848,8 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		goto panel_on;
 
 	if (!mfd->panel_info->cont_splash_enabled &&
-		(mfd->panel_info->type != DTV_PANEL)) {
+		(mfd->panel_info->type != DTV_PANEL) &&
+		!mfd->panel_info->is_dba_panel) {
 		rc = mdss_mdp_overlay_start(mfd);
 		if (rc)
 			goto end;
