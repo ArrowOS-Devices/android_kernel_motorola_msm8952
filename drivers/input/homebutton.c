@@ -19,12 +19,14 @@ struct homebutton_data {
 	bool key_down;
 	bool scr_suspended;
 	bool enable;
+	bool enable_off;
 	bool enable_wakeup;
 	int vib_strength;
 	unsigned int key;
 } hb_data = {
 	.vib_strength = VIB_STRENGTH,
 	.enable = true,
+	.enable_off = false,
 	.enable_wakeup = true,
 	.key = KEY_HOME
 };
@@ -40,6 +42,11 @@ static void hb_input_callback(struct work_struct *unused) {
 			input_report_key(hb_data.hb_dev, KEY_POWER, 1);
 			input_report_key(hb_data.hb_dev, KEY_POWER, 0);
 			hb_data.scr_suspended = false;
+		}
+		else if (!hb_data.scr_suspended && hb_data.enable_off) {
+			input_report_key(hb_data.hb_dev, KEY_POWER, 1);
+			input_report_key(hb_data.hb_dev, KEY_POWER, 0);
+			hb_data.scr_suspended = true;
 		}
 		else if (hb_data.enable) {
 			pr_err("homebutton report HOME");
@@ -101,6 +108,10 @@ static bool hb_input_filter(struct input_handle *handle, unsigned int type,
 {
 	if (type != EV_KEY)
 		return false;
+
+	if (!hb_data.enable) {
+		return false;
+	}
 
 	if (value == 1) {
 		if (code == KEY_FPS_DOWN)
@@ -186,6 +197,33 @@ static ssize_t hb_enable_store(struct device *dev,
 
 static DEVICE_ATTR(enable, (S_IWUSR | S_IRUGO),
 	hb_enable_show, hb_enable_store);
+
+static ssize_t hb_enable_off_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", hb_data.enable_off);
+}
+
+static ssize_t hb_enable_off_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int rc;
+	unsigned long input;
+
+	rc = kstrtoul(buf, 0, &input);
+	if (rc < 0)
+		return -EINVAL;
+
+	if (input < 0 || input > 1)
+		input = 0;
+
+	hb_data.enable_off = input;
+
+	return count;
+}
+
+static DEVICE_ATTR(enable_off, (S_IWUSR | S_IRUGO),
+	hb_enable_off_show, hb_enable_off_store);
 
 static ssize_t hb_enable_wakeup_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -276,7 +314,7 @@ static int __init hb_init(void)
 		goto err_alloc_dev;
 	}
 
-        input_set_capability(hb_data.hb_dev, EV_KEY, KEY_POWER);
+	input_set_capability(hb_data.hb_dev, EV_KEY, KEY_POWER);
 	input_set_capability(hb_data.hb_dev, EV_KEY, KEY_HOME);
 	set_bit(EV_KEY, hb_data.hb_dev->evbit);
 	set_bit(KEY_HOME, hb_data.hb_dev->keybit);
@@ -326,6 +364,10 @@ static int __init hb_init(void)
 	rc = sysfs_create_file(hb_data.homebutton_kobj, &dev_attr_key.attr);
 	if (rc)
 		pr_err("%s: sysfs_create_file failed for homebutton key\n", __func__);
+
+	rc = sysfs_create_file(hb_data.homebutton_kobj, &dev_attr_enable_off.attr);
+	if (rc)
+		pr_err("%s: sysfs_create_file failed for homebutton screen off key\n", __func__);
 
 err_input_dev:
 	input_free_device(hb_data.hb_dev);
