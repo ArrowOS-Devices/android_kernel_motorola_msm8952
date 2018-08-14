@@ -580,16 +580,19 @@ endif # $(dot-config)
 all: vmlinux
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
-KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,)
+KBUILD_CFLAGS	+= -Os $(call cc-disable-warning, maybe-uninitialized,)
 else
 KBUILD_CFLAGS	+= -O2
 endif
 
 # Disable unused-constant-variable warnings
-KBUILD_CFLAGS	+= $(call cc-disable-warning,unused-const-variable,)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, unused-const-variable,)
 
 # Disable format-truncation warnings
-KBUILD_CFLAGS   += $(call cc-disable-warning,format-truncation,)
+KBUILD_CFLAGS   += $(call cc-disable-warning, format-truncation,)
+
+# Disable noisy gcc-8 warning
+KBUILD_CFLAGS += $(call cc-disable-warning, packed-not-aligned)
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
 
