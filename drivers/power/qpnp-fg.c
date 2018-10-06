@@ -5435,6 +5435,7 @@ static void check_empty_work(struct work_struct *work)
 	}
 
 out:
+	fg_relax(&chip->empty_check_wakeup_source);
 }
 
 static void batt_profile_init(struct work_struct *work)
