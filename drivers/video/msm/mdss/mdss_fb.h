@@ -343,6 +343,9 @@ struct msm_fb_data_type {
 	struct work_struct mdss_fb_input_work;
 	enum mdp_fb_state fb_state;
 	struct input_handler *input_handler;
+
+	/* Following is used by Mr.Pickles */
+	struct delayed_work unblank_bl_work;
 };
 
 /* Function returns true for either any kind of dual display */
