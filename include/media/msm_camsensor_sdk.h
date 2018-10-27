@@ -1,7 +1,5 @@
-#ifndef __UAPI_LINUX_MSM_CAMSENSOR_SDK_H
-#define __UAPI_LINUX_MSM_CAMSENSOR_SDK_H
-
-#include <linux/videodev2.h>
+#ifndef __LINUX_MSM_CAMSENSOR_SDK_H
+#define __LINUX_MSM_CAMSENSOR_SDK_H
 
 #define KVERSION 0x1
 
@@ -140,20 +138,9 @@ enum camerab_mode_t {
 	CAMERA_MODE_INVALID = (1<<2),
 };
 
-/* Need to keep this table aligned with
- * enum msm_camera_i2c_data_type
- */
-
 enum msm_actuator_data_type {
 	MSM_ACTUATOR_BYTE_DATA = 1,
 	MSM_ACTUATOR_WORD_DATA,
-	MSM_ACTUATOR_DWORD_DATA,
-	MSM_ACTUATOR_SET_BYTE_MASK,
-	MSM_ACTUATOR_UNSET_BYTE_MASK,
-	MSM_ACTUATOR_SET_WORD_MASK,
-	MSM_ACTUATOR_UNSET_WORD_MASK,
-	MSM_ACTUATOR_SET_BYTE_WRITE_MASK_DATA,
-	MSM_ACTUATOR_DATA_TYPE_MAX,
 };
 
 enum msm_actuator_addr_type {
@@ -168,13 +155,11 @@ enum msm_actuator_write_type {
 	MSM_ACTUATOR_WRITE_DIR_REG,
 	MSM_ACTUATOR_POLL,
 	MSM_ACTUATOR_READ_WRITE,
-        MSM_ACTUATOR_WRITE_REG,
 };
 
 enum msm_actuator_i2c_operation {
 	MSM_ACT_WRITE = 0,
 	MSM_ACT_POLL,
-        MSM_ACT_READ_SET,
 };
 
 enum actuator_type {
@@ -182,7 +167,6 @@ enum actuator_type {
 	ACTUATOR_PIEZO,
 	ACTUATOR_HVCM,
 	ACTUATOR_BIVCM,
-        ACTUATOR_MOT_HVCM,
 };
 
 enum msm_flash_driver_type {
@@ -293,7 +277,6 @@ struct msm_camera_i2c_reg_array {
 	unsigned short reg_addr;
 	unsigned short reg_data;
 	unsigned int delay;
-        unsigned short eeprom_offset;
 };
 
 struct msm_camera_i2c_reg_setting {
@@ -402,5 +385,4 @@ struct msm_camera_i2c_reg_setting_array {
 	enum msm_camera_i2c_data_type data_type;
 	unsigned short delay;
 };
-
-#endif
+#endif /* __LINUX_MSM_CAM_SENSOR_H */

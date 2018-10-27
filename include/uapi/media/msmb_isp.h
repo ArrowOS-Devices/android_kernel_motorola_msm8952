@@ -18,9 +18,6 @@
 #define ISP_META_CHANNEL_BIT  (0x10000 << 3)
 #define ISP_SCRATCH_BUF_BIT   (0x10000 << 4)
 #define ISP_OFFLINE_STATS_BIT (0x10000 << 5)
-#define ISP_SVHDR_IN_BIT      (0x10000 << 6) /* RDI hw stream for SVHDR */
-#define ISP_SVHDR_OUT_BIT     (0x10000 << 7) /* SVHDR output bufq stream*/
-
 #define ISP_STATS_STREAM_BIT  0x80000000
 
 struct msm_vfe_cfg_cmd_list;
@@ -261,26 +258,6 @@ struct msm_vfe_fetch_eng_start {
 	uint32_t frame_id;
 };
 
-enum msm_vfe_fetch_eng_pass {
-	OFFLINE_FIRST_PASS,
-	OFFLINE_SECOND_PASS,
-	OFFLINE_MAX_PASS,
-};
-
-struct msm_vfe_fetch_eng_multi_pass_start {
-	uint32_t session_id;
-	uint32_t stream_id;
-	uint32_t buf_idx;
-	uint8_t  offline_mode;
-	uint32_t fd;
-	uint32_t buf_addr;
-	uint32_t frame_id;
-	uint32_t output_buf_idx;
-	uint32_t input_buf_offset;
-	enum msm_vfe_fetch_eng_pass  offline_pass;
-	uint32_t output_stream_id;
-};
-
 struct msm_vfe_axi_plane_cfg {
 	uint32_t output_width; /*Include padding*/
 	uint32_t output_height;
@@ -330,12 +307,6 @@ enum msm_vfe_axi_stream_cmd {
 	STOP_IMMEDIATELY,
 };
 
-enum msm_vfe_hw_state {
-	HW_STATE_NONE,
-	HW_STATE_SLEEP,
-	HW_STATE_AWAKE,
-};
-
 struct msm_vfe_axi_stream_cfg_cmd {
 	uint8_t num_streams;
 	uint32_t stream_handle[VFE_AXI_SRC_MAX];
@@ -353,7 +324,6 @@ enum msm_vfe_axi_stream_update_type {
 	UPDATE_STREAM_ADD_BUFQ,
 	UPDATE_STREAM_REMOVE_BUFQ,
 	UPDATE_STREAM_SW_FRAME_DROP,
-	UPDATE_STREAM_OFFLINE_AXI_CONFIG,
 };
 
 enum msm_vfe_iommu_type {
@@ -830,12 +800,10 @@ struct msm_isp_ahb_clk_cfg {
 #define V4L2_PIX_FMT_NV14 v4l2_fourcc('N', 'V', '1', '4')
 #define V4L2_PIX_FMT_NV41 v4l2_fourcc('N', 'V', '4', '1')
 #define V4L2_PIX_FMT_META v4l2_fourcc('Q', 'M', 'E', 'T')
-#define V4L2_PIX_FMT_META10 v4l2_fourcc('Q', 'M', '1', '0')
 #define V4L2_PIX_FMT_SBGGR14 v4l2_fourcc('B', 'G', '1', '4') /* 14 BGBG.GRGR.*/
 #define V4L2_PIX_FMT_SGBRG14 v4l2_fourcc('G', 'B', '1', '4') /* 14 GBGB.RGRG.*/
 #define V4L2_PIX_FMT_SGRBG14 v4l2_fourcc('B', 'A', '1', '4') /* 14 GRGR.BGBG.*/
 #define V4L2_PIX_FMT_SRGGB14 v4l2_fourcc('R', 'G', '1', '4') /* 14 RGRG.GBGB.*/
-
 
 #define VIDIOC_MSM_VFE_REG_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct msm_vfe_cfg_cmd2)
@@ -917,15 +885,4 @@ struct msm_isp_ahb_clk_cfg {
 #define VIDIOC_MSM_ISP_AHB_CLK_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+25, struct msm_isp_ahb_clk_cfg)
 
-#define VIDIOC_MSM_ISP_FETCH_ENG_MULTI_PASS_START \
-	_IOWR('V', BASE_VIDIOC_PRIVATE+26, \
-		struct msm_vfe_fetch_eng_multi_pass_start)
-
-#define VIDIOC_MSM_ISP_MAP_BUF_START_MULTI_PASS_FE \
-	_IOWR('V', BASE_VIDIOC_PRIVATE+27, \
-		struct msm_vfe_fetch_eng_multi_pass_start)
-
-#define VIDIOC_MSM_ISP_CFG_HW_STATE \
-	_IOWR('V', BASE_VIDIOC_PRIVATE+28, \
-		enum msm_vfe_hw_state)
 #endif /* __MSMB_ISP__ */
