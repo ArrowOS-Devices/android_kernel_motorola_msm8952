@@ -296,6 +296,14 @@ struct smbchg_chip {
 
 static struct smbchg_chip *the_chip;
 
+#ifdef CONFIG_QPNP_SMBCHARGER_CONTROL
+struct smbchg_control {
+	bool m_bTurboEnabled;
+};
+
+static struct smbchg_control *smbchg_ctrl;
+#endif
+
 enum qpnp_schg {
 	QPNP_SCHG,
 	QPNP_SCHG_LITE,
@@ -3672,7 +3680,11 @@ static void smbchg_rate_check(struct smbchg_chip *chip)
 		if ((prop.intval == POWER_SUPPLY_TYPE_USB_CDP) ||
 		    (prop.intval == POWER_SUPPLY_TYPE_USB))
 			chip->charger_rate = POWER_SUPPLY_CHARGE_RATE_NORMAL;
+#ifdef CONFIG_QPNP_SMBCHARGER_CONTROL
+		else if (smbchg_hvdcp_det_check(chip) && smbchg_ctrl->m_bTurboEnabled)
+#else
 		else if (smbchg_hvdcp_det_check(chip))
+#endif
 			chip->charger_rate = POWER_SUPPLY_CHARGE_RATE_TURBO;
 		else if (!chip->vbat_above_headroom &&
 			 chip->hvdcp_det_done && chip->aicl_complete &&
@@ -7795,12 +7807,54 @@ static int smbchg_reboot(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+#ifdef CONFIG_QPNP_SMBCHARGER_CONTROL
+static ssize_t smbchg_control_turbocharging_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int result = 0;
+	if (smbchg_ctrl->m_bTurboEnabled) result = 1;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", result);
+}
+
+static ssize_t smbchg_control_turbocharging_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int enabled = 0;
+
+	sscanf(buf, "%d", &enabled);
+
+	if (enabled) smbchg_ctrl->m_bTurboEnabled = true;
+	else smbchg_ctrl->m_bTurboEnabled = false;
+
+	return count;
+}
+
+static struct kobj_attribute smbchg_control_attribute =
+	__ATTR(turbo_charging, 0664,
+		smbchg_control_turbocharging_show,
+		smbchg_control_turbocharging_store);
+
+
+static struct attribute *smbchg_control_attrs[] = {
+	&smbchg_control_attribute.attr,
+	NULL,
+};
+
+static struct attribute_group smbchg_control_attr_group = {
+	.attrs = smbchg_control_attrs,
+};
+
+static struct kobject *smbchg_control_kobj;
+#endif
+
 #define DEFAULT_TEST_MODE_SOC  52
 #define DEFAULT_TEST_MODE_TEMP  225
 static int smbchg_probe(struct spmi_device *spmi)
 {
 	int rc;
 	struct smbchg_chip *chip;
+	struct smbchg_control *chip_ctrl;
 	struct power_supply *usb_psy;
 	struct qpnp_vadc_chip *vadc_dev;
 
@@ -8028,6 +8082,29 @@ static int smbchg_probe(struct spmi_device *spmi)
 		}
 
 	}
+
+#ifdef CONFIG_QPNP_SMBCHARGER_CONTROL
+	chip_ctrl = devm_kzalloc(&spmi->dev, sizeof(*chip_ctrl), GFP_KERNEL);
+	if (!chip_ctrl) {
+		dev_err(&spmi->dev, "Unable to allocate memory\n");
+		return -ENOMEM;
+	}
+
+	chip_ctrl->m_bTurboEnabled = true;
+
+	smbchg_control_kobj = kobject_create_and_add("smbchg_control", kernel_kobj);
+	if (smbchg_control_kobj == NULL) {
+		pr_warn("%s smbchg_control kobject create failed!\n", __func__);
+	}
+
+	rc = sysfs_create_group(smbchg_control_kobj, &smbchg_control_attr_group);
+	if (rc) {
+		pr_warn("%s smbchg_control sysfs file create failed!\n", __func__);
+	}
+
+	smbchg_ctrl = chip_ctrl;
+#endif
+
 	smbchg_stay_awake(chip, PM_HEARTBEAT);
 	schedule_delayed_work(&chip->heartbeat_work,
 			      msecs_to_jiffies(0));
