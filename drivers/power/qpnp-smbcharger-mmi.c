@@ -7854,7 +7854,9 @@ static int smbchg_probe(struct spmi_device *spmi)
 {
 	int rc;
 	struct smbchg_chip *chip;
+#ifdef CONFIG_QPNP_SMBCHARGER_CONTROL
 	struct smbchg_control *chip_ctrl;
+#endif
 	struct power_supply *usb_psy;
 	struct qpnp_vadc_chip *vadc_dev;
 
