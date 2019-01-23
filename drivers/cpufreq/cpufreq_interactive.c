@@ -1530,6 +1530,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 	struct cpufreq_interactive_policyinfo *ppol;
 	struct cpufreq_frequency_table *freq_table;
 	struct cpufreq_interactive_tunables *tunables;
+	unsigned long flags;
 
 	if (have_governor_per_policy())
 		tunables = policy->governor_data;
