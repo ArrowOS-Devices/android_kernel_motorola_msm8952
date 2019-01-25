@@ -491,9 +491,9 @@
 	qcom,stepchg-current-ma = <2500>;
 	qcom,stepchg-taper-ma = <2000>;
 	qcom,stepchg-iterm-ma = <146>;
-	qcom,hot-temp-c = <55>;
+	qcom,hot-temp-c = <60>;
 	qcom,cold-temp-c = <(-20)>;
-	qcom,warm-temp-c = <40>;
+	qcom,warm-temp-c = <45>;
 	qcom,cool-temp-c = <0>;
 	qcom,ext-temp-volt-mv = <4200>;
 	qcom,hotspot-thrs-c = <50>;
