@@ -36,7 +36,7 @@
 #define DSI_STATUS_CHECK_INIT -1
 #define DSI_STATUS_CHECK_DISABLE 1
 
-static uint32_t interval = STATUS_CHECK_INTERVAL_MS / 2;;
+static uint32_t interval = STATUS_CHECK_INTERVAL_MS / 2;
 static int32_t dsi_status_disable = DSI_STATUS_CHECK_INIT;
 static struct dsi_status_data *pstatus_data;
 static DEFINE_SPINLOCK(pstatus_init_lock);
@@ -141,13 +141,14 @@ irqreturn_t hw_vsync_handler(int irq, void *data)
 	ps_data = pstatus_data;
 	spin_unlock_irqrestore(&pstatus_init_lock, flags);
 
-	if (ps_data)
-		mod_delayed_work(system_wq, &ps_data->check_status,
-			msecs_to_jiffies(interval));
-	else
+	if (!ps_data) {
 		pr_err("Pstatus data is NULL\n");
+		return IRQ_HANDLED;
+	}
 
-	schedule_work(&pstatus_data->irq_done);
+	mod_delayed_work(system_wq, &ps_data->check_status,
+			msecs_to_jiffies(interval));
+	schedule_work(&ps_data->irq_done);
 
 	return IRQ_HANDLED;
 }
@@ -264,7 +265,7 @@ int __init mdss_dsi_status_init(void)
 	unsigned long flags;
 	int rc = 0;
 
-	ps_data = kzalloc(sizeof(struct dsi_status_data), GFP_KERNEL);
+	ps_data = kzalloc(sizeof(*ps_data), GFP_KERNEL);
 	if (!ps_data) {
 		pr_err("%s: can't allocate memory\n", __func__);
 		return -ENOMEM;
