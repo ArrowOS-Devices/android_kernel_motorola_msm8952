@@ -496,7 +496,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	}
 
 	spin_lock_irqsave(&ppol->target_freq_lock, flags);
-	cpu_load = loadadjfreq / ppol->policy->cur;
+	cpu_load = loadadjfreq / ppol->target_freq;
 	tunables->boosted = tunables->boost_val || now < tunables->boostpulse_endtime;
 
 	if (now - ppol->max_freq_hyst_start_time <
