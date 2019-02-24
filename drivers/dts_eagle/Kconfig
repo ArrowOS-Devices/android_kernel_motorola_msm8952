@@ -1,3 +1,6 @@
+
+menu "DTS Eagle"
+
 config AINUR_DTS_SW
 	bool "Ainur DTS software driver"
 	depends on ARM || ARM64
@@ -6,3 +9,5 @@ config AINUR_DTS_SW
 	  Driver port of DTS' android audio software-processed
 	  effect, which can be built side-by-side along with
 	  the hardware-processed effect driver.
+
+endmenu
