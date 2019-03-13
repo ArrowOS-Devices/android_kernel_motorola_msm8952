@@ -44,16 +44,16 @@ struct kcal_lut_data {
 	struct notifier_block panel_nb;
 #endif
 	bool queue_changes;
-	int red;
-	int green;
-	int blue;
-	int minimum;
-	int enable;
-	int invert;
-	int sat;
-	int hue;
-	int val;
-	int cont;
+        int red;
+        int green;
+        int blue;
+        int minimum;
+        int enable;
+        int invert;
+        int sat;
+        int hue;
+        int val;
+        int cont;
 };
 
 static uint32_t igc_Table_Inverted[IGC_LUT_ENTRIES] = {
@@ -147,6 +147,11 @@ static uint32_t igc_Table_RGB[IGC_LUT_ENTRIES] = {
 	240, 224, 208, 192, 176, 160, 144, 128, 112, 96, 80, 64,
 	48, 32, 16, 0
 };
+
+#ifdef CONFIG_KLAPSE
+struct kcal_lut_data *lut_cpy;
+#endif
+
 
 static bool mdss_mdp_kcal_is_panel_on(void)
 {
@@ -527,6 +532,20 @@ static int fb_notifier_callback(struct notifier_block *nb,
 }
 #endif
 
+#ifdef CONFIG_KLAPSE
+void kcal_klapse_push(int r, int g, int b)
+{
+        lut_cpy->red = r;
+	lut_cpy->green = g;
+	lut_cpy->blue = b;
+
+        mdss_mdp_kcal_update_pcc(lut_cpy);
+	mdss_mdp_kcal_update_pa(lut_cpy);
+	mdss_mdp_kcal_update_igc(lut_cpy);
+}
+#endif
+
+
 static int kcal_ctrl_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -576,6 +595,11 @@ static int kcal_ctrl_probe(struct platform_device *pdev)
 	}
 #endif
 
+#ifdef CONFIG_KLAPSE
+	lut_cpy = lut_data;
+#endif
+
+
 	ret = device_create_file(&pdev->dev, &dev_attr_kcal);
 	ret |= device_create_file(&pdev->dev, &dev_attr_kcal_min);
 	ret |= device_create_file(&pdev->dev, &dev_attr_kcal_enable);
@@ -599,6 +623,7 @@ out_notifier:
 #endif
 	return ret;
 }
+
 
 static int kcal_ctrl_remove(struct platform_device *pdev)
 {
