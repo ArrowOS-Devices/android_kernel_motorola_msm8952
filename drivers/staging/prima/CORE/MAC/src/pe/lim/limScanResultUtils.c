@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2014, 2016-2018 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -80,18 +80,8 @@ limDeactivateMinChannelTimerDuringScan(tpAniSirGlobal pMac)
          * Beacon/Probe Response is received during active scanning.
          * Deactivate MIN channel timer if running.
          */
-
         limDeactivateAndChangeTimer(pMac,eLIM_MIN_CHANNEL_TIMER);
-        if (tx_timer_activate(&pMac->lim.limTimers.gLimMaxChannelTimer)
-                                          == TX_TIMER_ERROR)
-        {
-            /// Could not activate max channel timer.
-            // Log error
-            limLog(pMac,LOGP, FL("could not activate max channel timer"));
 
-            limCompleteMlmScan(pMac, eSIR_SME_RESOURCES_UNAVAILABLE);
-            return TX_TIMER_ERROR;
-        }
     }
     return eSIR_SUCCESS;
 } /*** end limDeactivateMinChannelTimerDuringScan() ***/
@@ -389,6 +379,7 @@ limCheckAndAddBssDescription(tpAniSirGlobal pMac,
     tANI_U8               dontUpdateAll = 0;
     tANI_U8               rfBand = 0;
     tANI_U8               rxChannelInBD = 0;
+    bool chan_info_present = true;
 
     tSirMacAddr bssid = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     tSirMacAddr bssid_zero =  {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
@@ -462,7 +453,23 @@ limCheckAndAddBssDescription(tpAniSirGlobal pMac,
      */
     if(pBPR->channelSwitchPresent)
     {
-        return;
+       if (pBPR->ext_chan_switch_ann.new_channel !=
+           limGetChannelFromBeacon(pMac, pBPR))
+           return;
+    }
+
+    if(pBPR->ecsa_present) {
+       limLog(pMac, LOGW, FL("ECSA IE present"));
+       /* Still add to scan result if ECSA IE present and new channel
+        * equal to current channel.
+        */
+       if (pBPR->channelNumber!= HAL_INVALID_CHANNEL_ID &&
+           pBPR->ext_chan_switch_ann.new_channel != HAL_INVALID_CHANNEL_ID &&
+           pBPR->channelNumber != pBPR->ext_chan_switch_ann.new_channel) {
+             limLog(pMac, LOGW, FL("ignore this AP"));
+             return;
+        }
+
     }
 
     /* If beacon/probe resp DS param channel does not match with 
@@ -503,6 +510,10 @@ limCheckAndAddBssDescription(tpAniSirGlobal pMac,
               WDA_GET_RX_CH(pRxPacketInfo) = rxChannelInBeacon;
            }
         }
+    }
+    else
+    {
+        chan_info_present = false;
     }
 
     /**
@@ -572,12 +583,14 @@ limCheckAndAddBssDescription(tpAniSirGlobal pMac,
     if (pMac->lim.gLimReturnUniqueResults || (!fScanning))
     {
         status = limLookupNaddHashEntry(pMac, pBssDescr, LIM_HASH_UPDATE,
-                                        dontUpdateAll, ieLen - 2);
+                                        dontUpdateAll, ieLen - 2,
+                                        chan_info_present);
     }
     else
     {
         status = limLookupNaddHashEntry(pMac, pBssDescr, LIM_HASH_ADD,
-                                        dontUpdateAll, ieLen - 2);
+                                        dontUpdateAll, ieLen - 2,
+                                        chan_info_present);
     }
 
     if(fScanning)
@@ -686,45 +699,17 @@ limInitHashTable(tpAniSirGlobal pMac)
         pMac->lim.gLimCachedScanHashTable[i] = NULL;
 } /****** end limInitHashTable() ******/
 
-
-
-/**
- * limLookupNaddHashEntry()
- *
- *FUNCTION:
- * This function is called upon receiving a Beacon or
- * Probe Response frame during scan phase to store
- * received BSS description into scan result hash table.
- *
- *LOGIC:
- *
- *ASSUMPTIONS:
- * NA
- *
- *NOTE:
- * NA
- *
- * @param  pMac - Pointer to Global MAC structure
- * @param  pBssDescr - Pointer to BSS description to be
- *         added to the scan result hash table.
- * @param  action - Indicates action to be performed
- *         when same BSS description is found. This is
- *         dependent on whether unique scan result to
- *         be stored or not.
- *
- * @return None
- */
-
 eHalStatus
 limLookupNaddHashEntry(tpAniSirGlobal pMac,
                        tLimScanResultNode *pBssDescr, tANI_U8 action,
-                       tANI_U8 dontUpdateAll, tANI_U32 ie_len)
+                       tANI_U8 dontUpdateAll, tANI_U32 ie_len,
+                       bool chan_info_present)
 {
     tANI_U8                  index, ssidLen = 0;
     tANI_U8                found = false;
     tLimScanResultNode *ptemp, *pprev;
     tSirMacCapabilityInfo *pSirCap, *pSirCapTemp;
-    int idx, len;
+    int len, elem_id, elem_len;
     tANI_U8 *pbIe;
     tANI_S8  rssi = 0;
 
@@ -772,33 +757,73 @@ limLookupNaddHashEntry(tpAniSirGlobal pMac,
                    rssi = ptemp->bssDescription.rssi;
                 }
 
-                if(pBssDescr->bssDescription.fProbeRsp != ptemp->bssDescription.fProbeRsp)
+                if(pBssDescr->bssDescription.fProbeRsp !=
+                                             ptemp->bssDescription.fProbeRsp)
                 {
                     //We get a different, save the old frame WSC IE if it is there
-                    idx = 0;
-                    len = ptemp->bssDescription.length - sizeof(tSirBssDescription) + 
-                       sizeof(tANI_U16) + sizeof(tANI_U32) - DOT11F_IE_WSCPROBERES_MIN_LEN - 2;
+                    len = ptemp->bssDescription.length -
+                                 sizeof(tSirBssDescription) +
+                                 sizeof(tANI_U16) + sizeof(tANI_U32);
                     pbIe = (tANI_U8 *)ptemp->bssDescription.ieFields;
                     //Save WPS IE if it exists
                     pBssDescr->bssDescription.WscIeLen = 0;
-                    while(idx < len)
+                    while (len >= 2)
                     {
-                        if((DOT11F_EID_WSCPROBERES == pbIe[0]) &&
-                           (0x00 == pbIe[2]) && (0x50 == pbIe[3]) && (0xf2 == pbIe[4]) && (0x04 == pbIe[5]))
+                        elem_id = pbIe[0];
+                        elem_len = pbIe[1];
+                        len -= 2;
+                        if (elem_len > len) {
+                            limLog(pMac, LOGW, FL("Invalid eid: %d elem_len: %d left: %d"),
+                                   elem_id, elem_len, len);
+                            return eHAL_STATUS_FAILURE;
+                        }
+                        if ((elem_id == DOT11F_EID_WSCPROBERES) &&
+                            (elem_len >= DOT11F_IE_WSCPROBERES_MIN_LEN) &&
+                            ((pbIe[2] == 0x00) && (pbIe[3] == 0x50) &&
+                             (pbIe[4] == 0xf2) &&
+                             (pbIe[5] == 0x04)))
                         {
-                            //Found it
-                            if((DOT11F_IE_WSCPROBERES_MAX_LEN - 2) >= pbIe[1])
+                            if((elem_len + 2) <= WSCIE_PROBE_RSP_LEN)
                             {
-                                vos_mem_copy(pBssDescr->bssDescription.WscIeProbeRsp,
-                                   pbIe, pbIe[1] + 2);
-                                pBssDescr->bssDescription.WscIeLen = pbIe[1] + 2;
+                                vos_mem_copy(
+                                        pBssDescr->bssDescription.WscIeProbeRsp,
+                                        pbIe, elem_len + 2);
+                                pBssDescr->bssDescription.WscIeLen =
+                                                          elem_len + 2;
                             }
                             break;
                         }
-                        idx += pbIe[1] + 2;
-                        pbIe += pbIe[1] + 2;
+                        len -= elem_len;
+                        pbIe += (elem_len + 2);
                     }
                 }
+                /*
+                 * Due to Rx sensitivity issue, sometime beacons are seen on
+                 * adjacent channel so workaround in software is needed. If DS
+                 * params or HT info are present driver can get proper channel
+                 * info from these IEs and the older RSSI values are used in new
+                 * entry.
+                 *
+                 * For the cases where DS params and HT info is not present,
+                 * driver needs to check below conditions to update proper
+                 * channel so that the older RSSI and channel values are used in
+                 * new entry:
+                 *  -- The old entry channel and new entry channel are not same
+                 *  -- RSSI is below 15db or more from old value, this indicate
+                 *     that the signal has leaked in adjacent channel
+                 */
+                 if (!pBssDescr->bssDescription.fProbeRsp &&
+                     !chan_info_present &&
+                     (pBssDescr->bssDescription.channelId !=
+                      ptemp->bssDescription.channelId) &&
+                     ((ptemp->bssDescription.rssi -
+                       pBssDescr->bssDescription.rssi) >
+                      SIR_ADJACENT_CHANNEL_RSSI_DIFF_THRESHOLD)) {
+                      pBssDescr->bssDescription.channelId =
+                                 ptemp->bssDescription.channelId;
+                      pBssDescr->bssDescription.rssi =
+                                      ptemp->bssDescription.rssi;
+                 }
 
 
                 if(NULL != pMac->lim.gpLimMlmScanReq)

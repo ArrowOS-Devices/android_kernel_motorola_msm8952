@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -218,17 +218,17 @@ v_VOID_t * vos_mem_malloc_debug( v_SIZE_t size, char* fileName, v_U32_t lineNum)
       }
 #endif
       time_before_kmalloc = vos_timer_get_system_time();
-      memPtr = kmalloc(size, flags);
+      memPtr = kzalloc(size, flags);
 
       /* If time taken by kmalloc is greater than VOS_GET_MEMORY_TIME_THRESHOLD
        * msec */
       if (vos_timer_get_system_time() - time_before_kmalloc >=
                                     VOS_GET_MEMORY_TIME_THRESHOLD)
          VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-               "%s: kmalloc took %lu msec for size %d called from %pS at line %d",
+               "%s: kmalloc took %lu msec for size %d called at line %d",
                __func__,
                vos_timer_get_system_time() - time_before_kmalloc,
-               size, (void *)_RET_IP_, lineNum);
+               size, lineNum);
       if ((flags != GFP_ATOMIC) && (NULL == memPtr))
       {
          WARN_ON(1);
@@ -243,16 +243,16 @@ v_VOID_t * vos_mem_malloc_debug( v_SIZE_t size, char* fileName, v_U32_t lineNum)
    new_size = size + sizeof(struct s_vos_mem_struct) + 8; 
 
    time_before_kmalloc = vos_timer_get_system_time();
-   memStruct = (struct s_vos_mem_struct*)kmalloc(new_size, flags);
+   memStruct = (struct s_vos_mem_struct*)kzalloc(new_size, flags);
    /* If time taken by kmalloc is greater than VOS_GET_MEMORY_TIME_THRESHOLD
     * msec */
    if (vos_timer_get_system_time() - time_before_kmalloc >=
                               VOS_GET_MEMORY_TIME_THRESHOLD)
       VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-           "%s: kmalloc took %lu msec for size %d called from %pS at line %d",
+           "%s: kmalloc took %lu msec for size %d called at line %d",
             __func__,
             vos_timer_get_system_time() - time_before_kmalloc,
-            size, (void *)_RET_IP_, lineNum);
+            size, lineNum);
 
    if(memStruct != NULL)
    {
@@ -364,16 +364,16 @@ v_VOID_t * vos_mem_malloc( v_SIZE_t size )
    }
 #endif
    time_before_kmalloc = vos_timer_get_system_time();
-   memPtr = kmalloc(size, flags);
+   memPtr = kzalloc(size, flags);
    /* If time taken by kmalloc is greater than VOS_GET_MEMORY_TIME_THRESHOLD
     * msec */
    if (vos_timer_get_system_time() - time_before_kmalloc >=
                               VOS_GET_MEMORY_TIME_THRESHOLD)
       VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-          "%s: kmalloc took %lu msec for size %d from %pS",
+          "%s: kmalloc took %lu msec for size %d",
           __func__,
           vos_timer_get_system_time() - time_before_kmalloc,
-          size, (void *)_RET_IP_);
+          size);
 
    if ((flags != GFP_ATOMIC) && (NULL == memPtr))
    {
@@ -420,10 +420,10 @@ v_VOID_t * vos_mem_vmalloc(v_SIZE_t size)
     if (vos_timer_get_system_time() - time_before_vmalloc >=
                               VOS_GET_MEMORY_TIME_THRESHOLD)
         VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-           "%s: vmalloc took %lu msec for size %d from %pS",
+           "%s: vmalloc took %lu msec for size %d",
            __func__,
            vos_timer_get_system_time() - time_before_vmalloc,
-           size, (void *)_RET_IP_);
+           size);
     return memPtr;
 }
 
@@ -492,7 +492,7 @@ v_VOID_t vos_mem_copy( v_VOID_t *pDst, const v_VOID_t *pSrc, v_SIZE_t numBytes )
    if ((pDst == NULL) || (pSrc==NULL))
    {
       VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-                "%s called with NULL parameter, source:%p destination:%p",
+                "%s called with NULL parameter, source:%pK destination:%pK",
                 __func__, pSrc, pDst);
       VOS_ASSERT(0);
       return;
@@ -511,7 +511,7 @@ v_VOID_t vos_mem_move( v_VOID_t *pDst, const v_VOID_t *pSrc, v_SIZE_t numBytes )
    if ((pDst == NULL) || (pSrc==NULL))
    {
       VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-                "%s called with NULL parameter, source:%p destination:%p",
+                "%s called with NULL parameter, source:%pK destination:%pK",
                 __func__, pSrc, pDst);
       VOS_ASSERT(0);
       return;
@@ -541,7 +541,7 @@ v_BOOL_t vos_mem_compare(
    if ((pMemory1 == NULL) || (pMemory2==NULL))
    {
       VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-                "%s called with NULL parameter, p1:%p p2:%p",
+                "%s called with NULL parameter, p1:%pK p2:%pK",
                 __func__, pMemory1, pMemory2);
       VOS_ASSERT(0);
       return VOS_FALSE;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -55,10 +55,15 @@
 #include <net/cfg80211.h>
 #include <linux/firmware.h>
 #include <linux/vmalloc.h>
+//Moto, read MACs from boot params
+#include <linux/of.h>
+#include <linux/of_address.h>
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0))
 #define IEEE80211_CHAN_NO_80MHZ		1<<7
 #endif
+
+bool init_by_reg_core_user;
 
 #ifdef CONFIG_ENABLE_LINUX_REG
 
@@ -93,6 +98,10 @@ static v_BOOL_t crda_regulatory_run_time_entry_valid = VOS_FALSE;
 #define MIN(a, b) (a > b ? b : a)
 #define MAX(a, b) (a > b ? a : b)
 
+#ifdef MOTO_UTAGS_MAC
+#define WIFI_MAC_BOOTARG "androidboot.wifimacaddr="
+#define MACSTRLEN 17
+#endif
 /*----------------------------------------------------------------------------
  * Type Declarations
  * -------------------------------------------------------------------------*/
@@ -190,15 +199,15 @@ static CountryInfoTable_t countryInfoTable =
       {REGDOMAIN_ETSI, {'A', 'N'}}, //NETHERLANDS ANTILLES
       {REGDOMAIN_WORLD, {'A', 'R'}}, //ARGENTINA
       {REGDOMAIN_FCC, {'A', 'S'}}, //AMERICAN SOMOA
-      {REGDOMAIN_ETSI, {'A', 'T'}}, //AUSTRIA
+      {REGDOMAIN_FCC, {'A', 'T'}}, //AUSTRIA
       {REGDOMAIN_ETSI, {'A', 'U'}}, //AUSTRALIA
       {REGDOMAIN_ETSI , {'A', 'W'}}, //ARUBA
       {REGDOMAIN_ETSI,  {'A', 'Z'}}, //AZERBAIJAN
       {REGDOMAIN_ETSI, {'B', 'A'}}, //BOSNIA AND HERZEGOVINA
       {REGDOMAIN_APAC, {'B', 'B'}}, //BARBADOS
       {REGDOMAIN_ETSI, {'B', 'D'}}, //BANGLADESH
-      {REGDOMAIN_ETSI, { 'B', 'E'}}, //BELGIUM
-      {REGDOMAIN_ETSI, {'B', 'G'}}, //BULGARIA
+      {REGDOMAIN_FCC, { 'B', 'E'}}, //BELGIUM
+      {REGDOMAIN_FCC, {'B', 'G'}}, //BULGARIA
       {REGDOMAIN_APAC, {'B', 'H'}}, //BAHRAIN
       {REGDOMAIN_ETSI, {'B', 'L'}}, //
       {REGDOMAIN_FCC, {'B', 'M'}}, //BERMUDA
@@ -209,24 +218,25 @@ static CountryInfoTable_t countryInfoTable =
       {REGDOMAIN_ETSI, {'B', 'Y'}}, //BELARUS
       {REGDOMAIN_ETSI, {'B', 'Z'}}, //BELIZE
       {REGDOMAIN_FCC, {'C', 'A'}}, //CANADA
-      {REGDOMAIN_ETSI, {'C', 'H'}}, //SWITZERLAND
+      {REGDOMAIN_FCC, {'C', 'H'}}, //SWITZERLAND
       {REGDOMAIN_APAC, {'C', 'L'}}, //CHILE
       {REGDOMAIN_APAC, {'C', 'N'}}, //CHINA
       {REGDOMAIN_APAC, {'C', 'O'}}, //COLOMBIA
       {REGDOMAIN_APAC, {'C', 'R'}}, //COSTA RICA
       {REGDOMAIN_ETSI, {'C', 'S'}},
-      {REGDOMAIN_ETSI, {'C', 'Y'}}, //CYPRUS
-      {REGDOMAIN_ETSI, {'C', 'Z'}}, //CZECH REPUBLIC
-      {REGDOMAIN_ETSI, {'D', 'E'}}, //GERMANY
-      {REGDOMAIN_ETSI, {'D', 'K'}}, //DENMARK
+      {REGDOMAIN_FCC, {'C', 'Y'}}, //CYPRUS
+      {REGDOMAIN_FCC, {'C', 'Z'}}, //CZECH REPUBLIC
+      {REGDOMAIN_FCC, {'D', 'E'}}, //GERMANY
+      {REGDOMAIN_FCC, {'D', 'K'}}, //DENMARK
       {REGDOMAIN_APAC, {'D', 'O'}}, //DOMINICAN REPUBLIC
       {REGDOMAIN_ETSI, {'D', 'Z'}}, //ALGERIA
       {REGDOMAIN_APAC, {'E', 'C'}}, //ECUADOR
-      {REGDOMAIN_ETSI, {'E', 'E'}}, //ESTONIA
+      {REGDOMAIN_FCC, {'E', 'E'}}, //ESTONIA
       {REGDOMAIN_ETSI, {'E', 'G'}}, //EGYPT
-      {REGDOMAIN_ETSI, {'E', 'S'}}, //SPAIN
-      {REGDOMAIN_ETSI, {'F', 'I'}}, //FINLAND
-      {REGDOMAIN_ETSI, {'F', 'R'}}, //FRANCE
+      {REGDOMAIN_FCC, {'E', 'L'}},
+      {REGDOMAIN_FCC, {'E', 'S'}}, //SPAIN
+      {REGDOMAIN_FCC, {'F', 'I'}}, //FINLAND
+      {REGDOMAIN_FCC, {'F', 'R'}}, //FRANCE
       {REGDOMAIN_ETSI, {'G', 'B'}}, //UNITED KINGDOM
       {REGDOMAIN_WORLD, {'G', 'D'}},  //GRENADA
       {REGDOMAIN_ETSI, {'G', 'E'}}, //GEORGIA
@@ -236,14 +246,15 @@ static CountryInfoTable_t countryInfoTable =
       {REGDOMAIN_ETSI, {'G', 'R'}}, //GREECE
       {REGDOMAIN_APAC, {'G', 'T'}},  //GUATEMALA
       {REGDOMAIN_FCC, {'G', 'U'}},  //GUAM
-      {REGDOMAIN_ETSI, {'H', 'U'}}, //HUNGARY
+      {REGDOMAIN_FCC, {'H', 'R'}}, //HUNGARY
+      {REGDOMAIN_FCC, {'H', 'U'}}, //HUNGARY
       {REGDOMAIN_ETSI, {'I', 'D'}},  //INDONESIA
-      {REGDOMAIN_ETSI, {'I', 'E'}}, //IRELAND
+      {REGDOMAIN_FCC, {'I', 'E'}}, //IRELAND
       {REGDOMAIN_ETSI, {'I', 'L'}}, //ISRAEL
       {REGDOMAIN_APAC, {'I', 'N'}}, //INDIA
       {REGDOMAIN_ETSI, {'I', 'R'}}, //IRAN, ISLAMIC REPUBLIC OF
-      {REGDOMAIN_ETSI, {'I', 'S'}}, //ICELNAD
-      {REGDOMAIN_ETSI, {'I', 'T'}}, //ITALY
+      {REGDOMAIN_FCC, {'I', 'S'}}, //ICELNAD
+      {REGDOMAIN_FCC, {'I', 'T'}}, //ITALY
       {REGDOMAIN_WORLD, {'J', 'M'}},  //JAMAICA
       {REGDOMAIN_JAPAN, {'J', 'P'}}, //JAPAN
       {REGDOMAIN_APAC, {'J', 'O'}}, //JORDAN
@@ -254,11 +265,11 @@ static CountryInfoTable_t countryInfoTable =
       {REGDOMAIN_ETSI, {'K', 'W'}}, //KUWAIT
       {REGDOMAIN_WORLD, {'K', 'Z'}}, //KAZAKHSTAN
       {REGDOMAIN_WORLD, {'L', 'B'}}, //LEBANON
-      {REGDOMAIN_ETSI, {'L', 'I'}}, //LIECHTENSTEIN
+      {REGDOMAIN_FCC, {'L', 'I'}}, //LIECHTENSTEIN
       {REGDOMAIN_WORLD, {'L', 'K'}}, //SRI-LANKA
-      {REGDOMAIN_ETSI, {'L', 'T'}}, //LITHUANIA
-      {REGDOMAIN_ETSI, {'L', 'U'}}, //LUXEMBOURG
-      {REGDOMAIN_ETSI, {'L','V'}},  //LATVIA
+      {REGDOMAIN_FCC, {'L', 'T'}}, //LITHUANIA
+      {REGDOMAIN_FCC, {'L', 'U'}}, //LUXEMBOURG
+      {REGDOMAIN_FCC, {'L','V'}},  //LATVIA
       {REGDOMAIN_ETSI, {'M', 'A'}}, //MOROCCO
       {REGDOMAIN_ETSI, {'M', 'C'}}, //MONACO
       {REGDOMAIN_ETSI, {'M', 'K'}}, //MACEDONIA, THE FORMER YUGOSLAV REPUBLIC OF
@@ -266,15 +277,15 @@ static CountryInfoTable_t countryInfoTable =
       {REGDOMAIN_APAC, {'M', 'O'}}, //MACAO
       {REGDOMAIN_FCC, {'M', 'P'}}, //NORTHERN MARIANA ISLANDS
       {REGDOMAIN_ETSI, {'M', 'Q'}}, //MARTINIQUE
-      {REGDOMAIN_ETSI, {'M', 'T'}}, //MALTA
+      {REGDOMAIN_FCC, {'M', 'T'}}, //MALTA
       {REGDOMAIN_ETSI, {'M', 'U'}}, //MAURITIUS
       {REGDOMAIN_ETSI, {'M', 'W'}}, //MALAWI
       {REGDOMAIN_APAC, {'M', 'X'}}, //MEXICO
       {REGDOMAIN_APAC, {'M', 'Y'}}, //MALAYSIA
       {REGDOMAIN_WORLD, {'N', 'G'}}, //NIGERIA
       {REGDOMAIN_WORLD, {'N', 'I'}}, //NICARAGUA
-      {REGDOMAIN_ETSI, {'N', 'L'}}, //NETHERLANDS
-      {REGDOMAIN_ETSI, {'N', 'O'}}, //NORWAY
+      {REGDOMAIN_FCC, {'N', 'L'}}, //NETHERLANDS
+      {REGDOMAIN_FCC, {'N', 'O'}}, //NORWAY
       {REGDOMAIN_APAC, {'N', 'P'}}, //NEPAL
       {REGDOMAIN_APAC, {'N', 'Z'}}, //NEW-ZEALAND
       {REGDOMAIN_ETSI, {'O', 'M'}}, //OMAN
@@ -284,32 +295,33 @@ static CountryInfoTable_t countryInfoTable =
       {REGDOMAIN_WORLD, {'P', 'G'}}, //PAPUA NEW GUINEA
       {REGDOMAIN_WORLD, {'P', 'H'}}, //PHILIPPINES
       {REGDOMAIN_ETSI, {'P', 'K'}}, //PAKISTAN
-      {REGDOMAIN_ETSI, {'P', 'L'}}, //POLAND
+      {REGDOMAIN_FCC, {'P', 'L'}}, //POLAND
       {REGDOMAIN_FCC, {'P', 'R'}}, //PUERTO RICO
       {REGDOMAIN_WORLD, {'P', 'S'}}, //PALESTINIAN TERRITORY, OCCUPIED
-      {REGDOMAIN_ETSI, {'P', 'T'}}, //PORTUGAL
+      {REGDOMAIN_FCC, {'P', 'T'}}, //PORTUGAL
       {REGDOMAIN_WORLD, {'P', 'Y'}}, //PARAGUAY
       {REGDOMAIN_ETSI, {'Q', 'A'}}, //QATAR
       {REGDOMAIN_ETSI, {'R', 'E'}}, //REUNION
-      {REGDOMAIN_ETSI, {'R', 'O'}}, //ROMAINIA
+      {REGDOMAIN_FCC, {'R', 'O'}}, //ROMAINIA
       {REGDOMAIN_ETSI, {'R', 'S'}}, //SERBIA
       {REGDOMAIN_APAC, {'R', 'U'}}, //RUSSIA
       {REGDOMAIN_WORLD, {'R', 'W'}}, //RWANDA
       {REGDOMAIN_WORLD, {'S', 'A'}}, //SAUDI ARABIA
-      {REGDOMAIN_ETSI, {'S', 'E'}}, //SWEDEN
+      {REGDOMAIN_FCC, {'S', 'E'}}, //SWEDEN
       {REGDOMAIN_APAC, {'S', 'G'}}, //SINGAPORE
-      {REGDOMAIN_ETSI, {'S', 'I'}}, //SLOVENNIA
-      {REGDOMAIN_ETSI, {'S', 'K'}}, //SLOVAKIA
+      {REGDOMAIN_FCC, {'S', 'I'}}, //SLOVENNIA
+      {REGDOMAIN_FCC, {'S', 'K'}}, //SLOVAKIA
       {REGDOMAIN_APAC, {'S', 'V'}}, //EL SALVADOR
       {REGDOMAIN_ETSI, {'S', 'Y'}}, //SYRIAN ARAB REPUBLIC
       {REGDOMAIN_WORLD, {'T', 'H'}}, //THAILAND
       {REGDOMAIN_ETSI, {'T', 'N'}}, //TUNISIA
-      {REGDOMAIN_ETSI, {'T', 'R'}}, //TURKEY
+      {REGDOMAIN_FCC, {'T', 'R'}}, //TURKEY
       {REGDOMAIN_WORLD, {'T', 'T'}}, //TRINIDAD AND TOBAGO
       {REGDOMAIN_FCC, {'T', 'W'}}, //TAIWAN, PRIVINCE OF CHINA
       {REGDOMAIN_ETSI, {'T', 'Z'}}, //TANZANIA, UNITED REPUBLIC OF
       {REGDOMAIN_WORLD, {'U', 'A'}}, //UKRAINE
       {REGDOMAIN_KOREA, {'U', 'G'}}, //UGANDA
+      {REGDOMAIN_FCC, {'U', 'K'}},
       {REGDOMAIN_FCC, {'U', 'S'}}, //USA
       {REGDOMAIN_WORLD, {'U', 'Y'}}, //URUGUAY
       {REGDOMAIN_ETSI, {'U', 'Z'}}, //UZBEKISTAN
@@ -593,6 +605,9 @@ static CountryInfoTable_t countryInfoTable =
 #endif
 
 
+#ifdef MOTO_UTAGS_MAC
+static v_BOOL_t macsRead = VOS_FALSE;
+#endif
 typedef struct nvEFSTable_s
 {
    v_U32_t    nvValidityBitmap;
@@ -1425,6 +1440,10 @@ VOS_STATUS vos_nv_open(void)
                    goto error;
             }
         }
+#ifdef MOTO_UTAGS_MAC
+        // Read Multi MACs and fill it in global NV strucutre.
+        vos_nv_readMultiMacAddress(NULL,VOS_MAX_CONCURRENCY_PERSONA);
+#endif
 
         if (vos_nv_getValidity(VNV_RATE_TO_POWER_TABLE, &itemIsValid) ==
              VOS_STATUS_SUCCESS)
@@ -1630,6 +1649,9 @@ VOS_STATUS vos_nv_close(void)
     linux_reg_cc[1] = '0';
 
     gnvEFSTable=NULL;
+#ifdef MOTO_UTAGS_MAC
+    macsRead = VOS_FALSE;
+#endif
     return VOS_STATUS_SUCCESS;
 }
 
@@ -1736,6 +1758,19 @@ VOS_STATUS vos_nv_readMacAddress( v_MAC_ADDRESS_t pMacAddress )
    return status;
 }
 
+#ifdef MOTO_UTAGS_MAC
+static inline void strtomac(char * buf, unsigned char macaddr[6]) {
+    if (strchr(buf, ':'))
+        sscanf(buf, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+            &macaddr[0],&macaddr[1], &macaddr[2], &macaddr[3], &macaddr[4], &macaddr[5]);
+    else if (strchr(buf, '-'))
+        sscanf(buf, "%hhx-%hhx-%hhx-%hhx-%hhx-%hhx",
+            &macaddr[0],&macaddr[1], &macaddr[2], &macaddr[3], &macaddr[4], &macaddr[5]);
+    else
+        VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+            "%s,Can not parse mac address: %s", __func__,buf);
+}
+#endif
 /**------------------------------------------------------------------------
 
   \brief vos_nv_readMultiMacAddress() - return the Multiple MAC addresses
@@ -1751,23 +1786,137 @@ VOS_STATUS vos_nv_readMacAddress( v_MAC_ADDRESS_t pMacAddress )
 VOS_STATUS vos_nv_readMultiMacAddress( v_U8_t *pMacAddress,
                                               v_U8_t  macCount )
 {
+#ifndef MOTO_UTAGS_MAC
    sNvFields   fieldImage;
    VOS_STATUS  status;
    v_U8_t      countLoop;
    v_U8_t     *pNVMacAddress;
+#else
+   //Moto, read MACs from bootparams
+   VOS_STATUS  status = VOS_STATUS_E_FAILURE;
+   struct device_node *chosen_node = NULL;
+   unsigned char mac1 [VOS_MAC_ADDRESS_LEN] = {0};
+   unsigned char mac2 [VOS_MAC_ADDRESS_LEN] = {0};
+   unsigned char mac3 [VOS_MAC_ADDRESS_LEN] = {0};
+   unsigned char mac4 [VOS_MAC_ADDRESS_LEN] = {0};
+   v_CONTEXT_t pVosContext= NULL;
+#endif
 
    if((0 == macCount) || (VOS_MAX_CONCURRENCY_PERSONA < macCount) ||
       (NULL == pMacAddress))
    {
       VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
-          " Invalid Parameter from NV Client macCount %d, pMacAddress %p",
+          " Invalid Parameter from NV Client macCount %d, pMacAddress %pK",
           macCount, pMacAddress);
+
+      return VOS_STATUS_E_INVAL;
    }
+
+#ifdef MOTO_UTAGS_MAC
+   /*Get the global context */
+   pVosContext = vos_get_global_context(VOS_MODULE_ID_SYS, NULL);
+   if (NULL == pVosContext){
+       VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+          "%s: Not able to get VosContex",__func__);
+       return VOS_STATUS_E_FAILURE;
+   }
+
+   if ((macsRead == VOS_TRUE) && (pMacAddress != NULL)) {
+        int macLoop =0;
+       /* We have already read MAC addresses when this function was called from vos_nv_open.
+       Avoid reparsing and fill from the global NV structure*/
+       if (((VosContextType*)(pVosContext))->nvVersion == E_NV_V2) {
+           vos_mem_copy(pMacAddress,gnvEFSTableV2->halnvV2.fields.macAddr, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(pMacAddress+1*VOS_MAC_ADDRESS_LEN, gnvEFSTableV2->halnvV2.fields.macAddr2, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(pMacAddress+2*VOS_MAC_ADDRESS_LEN, gnvEFSTableV2->halnvV2.fields.macAddr3, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(pMacAddress+3*VOS_MAC_ADDRESS_LEN, gnvEFSTableV2->halnvV2.fields.macAddr4, VOS_MAC_ADDRESS_LEN);
+       } else if(((VosContextType*)(pVosContext))->nvVersion == E_NV_V3) {
+           vos_mem_copy(pMacAddress, gnvEFSTable->halnv.fields.macAddr, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(pMacAddress+1*VOS_MAC_ADDRESS_LEN, gnvEFSTable->halnv.fields.macAddr2, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(pMacAddress+2*VOS_MAC_ADDRESS_LEN, gnvEFSTable->halnv.fields.macAddr3, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(pMacAddress+3*VOS_MAC_ADDRESS_LEN, gnvEFSTable->halnv.fields.macAddr4, VOS_MAC_ADDRESS_LEN);
+       } else {
+           VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+                "%s: NV version is invalid",__func__);
+           return VOS_STATUS_E_FAILURE;
+       }
+       for (macLoop = 0; macLoop < VOS_MAX_CONCURRENCY_PERSONA; macLoop++) {
+            VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+                "%s: pMacAddress[%d]="MAC_ADDRESS_STR ,__func__, macLoop, MAC_ADDR_ARRAY(pMacAddress + macLoop*VOS_MAC_ADDRESS_LEN));
+       }
+       return VOS_STATUS_SUCCESS;
+   }
+#else
 
    status = vos_nv_read( VNV_FIELD_IMAGE, &fieldImage, NULL,
                          sizeof(fieldImage) );
+#endif
+
+#ifdef MOTO_UTAGS_MAC
+    //Moto, read MACs from bootparams
+    chosen_node = of_find_node_by_name(NULL, "chosen");
+    if (!chosen_node) {
+        VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+            "%s: get chosen node read failed\n", __func__);
+    } else {
+        int len=0;
+        const char *cmd_line = NULL;
+        cmd_line = of_get_property(chosen_node, "bootargs", &len);
+        if (!cmd_line || len <= 0) {
+            VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+                "%s: get wlan MACs bootargs failed\n", __func__);
+        } else {
+            char * mac_idx = NULL;
+            mac_idx = strstr(cmd_line, WIFI_MAC_BOOTARG);
+            if (mac_idx == NULL) {
+                VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+                   "%s: " WIFI_MAC_BOOTARG " not present in bootargs", __func__);
+            } else {
+                char macStr1[MACSTRLEN+1] ={0};
+                char macStr2[MACSTRLEN+1] ={0};
+                status = VOS_STATUS_SUCCESS;
+
+                // extract 2 MACs from boot params
+                mac_idx += strlen(WIFI_MAC_BOOTARG);
+                memcpy(macStr1,mac_idx,MACSTRLEN);
+                mac_idx += MACSTRLEN;
+                //IKVPREL1L-627:Handle inter MAC separator if any
+                if ( *mac_idx == ',' || *mac_idx == '-')
+                    mac_idx ++;
+                else
+                    VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR," No inter MAC separator used");
+
+                memcpy(macStr2,mac_idx,MACSTRLEN);
+                VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+                    "%s: MAC1 from bootparams=%s\n", __func__,macStr1);
+                VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+                    "%s: MAC2 from boot params=%s\n", __func__,macStr2);
+                strtomac(macStr1,mac1);
+                strtomac(macStr2,mac2);
+
+                // generate other 2 MACs
+                memcpy(mac3,mac1,VOS_MAC_ADDRESS_LEN);
+                memcpy(mac4,mac2,VOS_MAC_ADDRESS_LEN);
+                // Set local administered bit to derive other two MACs
+                mac3[0] |= 1 << 1;
+                mac4[0] |= 1 << 1;
+
+                VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_DEBUG,
+                    "%s: Mac1 Addr: "  MAC_ADDRESS_STR, __func__, MAC_ADDR_ARRAY(mac1));
+                VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_DEBUG,
+                    "%s: Mac2 Addr: "  MAC_ADDRESS_STR, __func__, MAC_ADDR_ARRAY(mac2));
+                VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_DEBUG,
+                    "%s: Mac3 Addr: "  MAC_ADDRESS_STR, __func__, MAC_ADDR_ARRAY(mac3));
+                VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_DEBUG,
+                    "%s: Mac4 Addr: "  MAC_ADDRESS_STR, __func__, MAC_ADDR_ARRAY(mac4));
+            }
+        }
+    }
+#endif
+
    if (VOS_STATUS_SUCCESS == status)
    {
+#ifndef MOTO_UTAGS_MAC
       pNVMacAddress = fieldImage.macAddr;
       for(countLoop = 0; countLoop < macCount; countLoop++)
       {
@@ -1781,7 +1930,37 @@ VOS_STATUS vos_nv_readMultiMacAddress( v_U8_t *pMacAddress,
       VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                  "vos_nv_readMultiMacAddress Get NV Field Fail");
    }
+#else
 
+       //Set Macs to global NV structure
+       if (((VosContextType*)(pVosContext))->nvVersion == E_NV_V2) {
+           vos_mem_copy(gnvEFSTableV2->halnvV2.fields.macAddr, mac1, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(gnvEFSTableV2->halnvV2.fields.macAddr2, mac2, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(gnvEFSTableV2->halnvV2.fields.macAddr3, mac3, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(gnvEFSTableV2->halnvV2.fields.macAddr4, mac4, VOS_MAC_ADDRESS_LEN);
+           VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR, "%s MAC address in global V2"
+                      MAC_ADDRESS_STR MAC_ADDRESS_STR MAC_ADDRESS_STR MAC_ADDRESS_STR ,__func__,
+                      MAC_ADDR_ARRAY(gnvEFSTableV2->halnvV2.fields.macAddr), MAC_ADDR_ARRAY(gnvEFSTableV2->halnvV2.fields.macAddr2),
+                      MAC_ADDR_ARRAY(gnvEFSTableV2->halnvV2.fields.macAddr3), MAC_ADDR_ARRAY(gnvEFSTableV2->halnvV2.fields.macAddr4));
+       } else if(((VosContextType*)(pVosContext))->nvVersion == E_NV_V3) {
+           vos_mem_copy(gnvEFSTable->halnv.fields.macAddr, mac1, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(gnvEFSTable->halnv.fields.macAddr2, mac2, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(gnvEFSTable->halnv.fields.macAddr3, mac3, VOS_MAC_ADDRESS_LEN);
+           vos_mem_copy(gnvEFSTable->halnv.fields.macAddr4, mac4, VOS_MAC_ADDRESS_LEN);
+           VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR, "%s MAC address in global V3"
+                      MAC_ADDRESS_STR MAC_ADDRESS_STR MAC_ADDRESS_STR MAC_ADDRESS_STR ,__func__,
+                      MAC_ADDR_ARRAY(gnvEFSTable->halnv.fields.macAddr), MAC_ADDR_ARRAY(gnvEFSTable->halnv.fields.macAddr2),
+                      MAC_ADDR_ARRAY(gnvEFSTable->halnv.fields.macAddr3), MAC_ADDR_ARRAY(gnvEFSTable->halnv.fields.macAddr4));
+       } else {
+           VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+                "%s: invalid NV version",__func__);
+           goto skip;
+       }
+       macsRead = VOS_TRUE;
+   }
+skip:
+   of_node_put(chosen_node);
+#endif
    return status;
 }
 
@@ -2442,7 +2621,7 @@ VOS_STATUS vos_nv_getChannelListWithPower(tChannelListWithPower *channels20MHz /
     if( channels20MHz && num20MHzChannelsFound )
     {
         count = 0;
-        for( i = 0; i <= RF_CHAN_14; i++ )
+        for( i = 0; i <= RF_CHAN_13; i++ )
         {
             if( regChannels[i].enabled )
             {
@@ -2632,6 +2811,40 @@ VOS_STATUS vos_nv_setNVEncodedBuffer(v_U8_t *pNvBuffer, v_SIZE_t size)
     return VOS_STATUS_SUCCESS;
 }
 
+/*
+ *vos_nv_set_Channel_state - API to set the channel state in NV table
+ *@rfChannel  - input channel enum
+ *@channel_state - state of the channel to be set
+ *  enabled
+ *  disabled
+ *  DFS
+ * Return - Void
+ */
+void vos_nv_set_channel_state(v_U32_t rfChannel,
+			      eNVChannelEnabledType channel_state)
+{
+	v_U32_t	channelLoop;
+	eRfChannels channelEnum = INVALID_RF_CHANNEL;
+
+	for (channelLoop = 0; channelLoop <= RF_CHAN_165; channelLoop++) {
+		if (rfChannels[channelLoop].channelNum == rfChannel) {
+			channelEnum = (eRfChannels)channelLoop;
+			break;
+		}
+	}
+
+	if (INVALID_RF_CHANNEL == channelEnum) {
+		VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+			  "vos_nv_set_channel_state, invalid channel %d",
+			  rfChannel);
+		return;
+	}
+
+	pnvEFSTable->
+	halnv.tables.regDomains[temp_reg_domain].channels[channelEnum].enabled =
+		channel_state;
+}
+
 /**------------------------------------------------------------------------
   \brief vos_nv_getChannelEnabledState -
   \param rfChannel  - input channel enum to know evabled state
@@ -2648,6 +2861,11 @@ eNVChannelEnabledType vos_nv_getChannelEnabledState
 {
    v_U32_t       channelLoop;
    eRfChannels   channelEnum = INVALID_RF_CHANNEL;
+
+   if(rfChannels[RF_CHAN_14].channelNum == rfChannel)
+   {
+       return NV_CHANNEL_INVALID;
+   }
 
    for(channelLoop = 0; channelLoop <= RF_CHAN_165; channelLoop++)
    {
@@ -2820,11 +3038,11 @@ static int create_crda_regulatory_entry(struct wiphy *wiphy,
    /* 20MHz channels */
    if (nBandCapability == eCSR_BAND_24)
        pr_info("BandCapability is set to 2G only.\n");
-   for (i=0,m=0;i<IEEE80211_NUM_BANDS;i++)
+   for (i=0,m=0;i<HDD_NUM_NL80211_BANDS;i++)
    {
-       if (i == IEEE80211_BAND_2GHZ && nBandCapability == eCSR_BAND_5G) // 5G only
+       if (i == HDD_NL80211_BAND_2GHZ && nBandCapability == eCSR_BAND_5G) // 5G only
           continue;
-       else if (i == IEEE80211_BAND_5GHZ && nBandCapability == eCSR_BAND_24) // 2G only
+       else if (i == HDD_NL80211_BAND_5GHZ && nBandCapability == eCSR_BAND_24) // 2G only
           continue;
        if (wiphy->bands[i] == NULL)
        {
@@ -3296,7 +3514,7 @@ v_BOOL_t vos_is_channel_valid_for_vht80(v_U32_t chan)
     if (chan <= RF_CHAN_14)
         return VOS_FALSE;
 
-    band = IEEE80211_BAND_5GHZ;
+    band = HDD_NL80211_BAND_5GHZ;
     freq = vos_chan_to_freq(chan);
     wiphy = pHddCtx->wiphy;
 
@@ -3587,7 +3805,7 @@ int vos_update_nv_table_from_wiphy_band(void *hdd_ctx,
    hdd_context_t *pHddCtx = (hdd_context_t *)hdd_ctx;
    struct wiphy *wiphy = (struct wiphy *)pwiphy;
 
-   for (i = 0, m = 0; i<IEEE80211_NUM_BANDS; i++)
+   for (i = 0, m = 0; i<HDD_NUM_NL80211_BANDS; i++)
    {
 
         if (wiphy->bands[i] == NULL)
@@ -3608,9 +3826,14 @@ int vos_update_nv_table_from_wiphy_band(void *hdd_ctx,
 
         for (j = 0; j < wiphy->bands[i]->n_channels; j++)
         {
-             if (IEEE80211_BAND_2GHZ == i && eCSR_BAND_5G == nBandCapability)
-                  wiphy->bands[i]->channels[j].flags |= IEEE80211_CHAN_DISABLED;
-             else if (IEEE80211_BAND_5GHZ == i && eCSR_BAND_24 == nBandCapability)
+             if (HDD_NL80211_BAND_2GHZ == i && eCSR_BAND_5G == nBandCapability)
+             {
+                 if (WLAN_HDD_IS_SOCIAL_CHANNEL(wiphy->bands[i]->channels[j].center_freq) )
+                     wiphy->bands[i]->channels[j].flags &= ~IEEE80211_CHAN_DISABLED;
+                 else
+                     wiphy->bands[i]->channels[j].flags |= IEEE80211_CHAN_DISABLED;
+             }
+             else if (HDD_NL80211_BAND_5GHZ == i && eCSR_BAND_24 == nBandCapability)
                   wiphy->bands[i]->channels[j].flags |= IEEE80211_CHAN_DISABLED;
 
             /* k = (m + j) is internal current channel index for 20MHz channel
@@ -3686,24 +3909,35 @@ int vos_update_nv_table_from_wiphy_band(void *hdd_ctx,
                 }
             }
             /* nv cannot distinguish between DFS and passive channels */
-            else if (wiphy->bands[i]->channels[j].flags &
+            else if ((wiphy->bands[i]->channels[j].flags &
                     (IEEE80211_CHAN_RADAR | IEEE80211_CHAN_PASSIVE_SCAN |
-                     IEEE80211_CHAN_INDOOR_ONLY))
+                    IEEE80211_CHAN_INDOOR_ONLY )))
             {
-                if (wiphy->bands[i]->channels[j].flags &
-                        IEEE80211_CHAN_INDOOR_ONLY)
+                if (pHddCtx && pHddCtx->cfg_ini &&
+                    pHddCtx->cfg_ini->indoor_channel_support == false &&
+                    wiphy->bands[i]->channels[j].flags &
+                    IEEE80211_CHAN_INDOOR_ONLY)
                     wiphy->bands[i]->channels[j].flags |=
                         IEEE80211_CHAN_PASSIVE_SCAN;
+
 #ifdef FEATURE_WLAN_CH144
-                if ((RF_CHAN_144 == k) && (E_NV_V3 != vos_nv_getNvVersion()))
-                {
-                    //Do not enable channel 144 when NV version is not NV3
+                if ((RF_CHAN_144 == k) &&
+                    (E_NV_V3 != vos_nv_getNvVersion())) {
+                        //Do not enable channel 144 when NV version is not NV3
                 }
                 else
 #endif
                 {
-                    pnvEFSTable->halnv.tables.regDomains[temp_reg_domain].\
-                        channels[k].enabled = NV_CHANNEL_DFS;
+                    if ((pHddCtx && pHddCtx->cfg_ini &&
+                         pHddCtx->cfg_ini->indoor_channel_support == true &&
+                         wiphy->bands[i]->channels[j].flags &
+                         IEEE80211_CHAN_INDOOR_ONLY)) {
+                        pnvEFSTable->halnv.tables.regDomains[temp_reg_domain].\
+                            channels[k].enabled = NV_CHANNEL_ENABLE;
+                    } else {
+                        pnvEFSTable->halnv.tables.regDomains[temp_reg_domain].\
+                            channels[k].enabled = NV_CHANNEL_DFS;
+                    }
                 }
 
                 if (!gnvEFSTable->halnv.tables.regDomains[temp_reg_domain].channels[k].pwrLimit
@@ -3965,6 +4199,34 @@ static int create_linux_regulatory_entry(struct wiphy *wiphy,
 
 }
 
+static void
+wlan_hdd_disable_fcc_5600_5640(hdd_context_t *hdd_ctx, struct wiphy *wiphy,
+			       struct regulatory_request *request)
+{
+	struct ieee80211_channel *channels;
+	uint32_t no_channels;
+	uint32_t i;
+
+	if (cur_reg_domain != REGDOMAIN_FCC ||
+	    !hdd_ctx->cfg_ini->gEnableStrictRegulatoryForFCC ||
+	    !wiphy->bands[HDD_NL80211_BAND_5GHZ])
+		return;
+
+	channels = wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels;
+	no_channels = wiphy->bands[HDD_NL80211_BAND_5GHZ]->n_channels;
+
+	for (i = 0; i < no_channels; i++) {
+		if (channels[i].center_freq != 5600 &&
+		    channels[i].center_freq != 5620 &&
+		    channels[i].center_freq != 5640)
+			continue;
+
+		channels[i].flags |= IEEE80211_CHAN_DISABLED;
+		if (request->initiator == NL80211_REGDOM_SET_BY_DRIVER)
+			channels[i].orig_flags |= IEEE80211_CHAN_DISABLED;
+	}
+}
+
 /*
  * Function: wlan_hdd_linux_reg_notifier
  * This function is called from cfg80211 core to provide regulatory settings
@@ -3988,6 +4250,9 @@ int __wlan_hdd_linux_reg_notifier(struct wiphy *wiphy,
 
     VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
                "cfg80211 reg notifier callback for country for initiator %d", request->initiator);
+
+    pr_info("country: %c%c and initiator %d", request->alpha2[0],
+            request->alpha2[1], request->initiator);
 
     if (NULL == pHddCtx)
     {
@@ -4129,6 +4394,9 @@ int __wlan_hdd_linux_reg_notifier(struct wiphy *wiphy,
         }
         else
         {
+           if (WLAN_HDD_IS_LOAD_IN_PROGRESS(pHddCtx))
+              init_by_reg_core_user = true;
+
            sme_GenericChangeCountryCode(pHddCtx->hHal, country_code,
                                     temp_reg_domain);
         }
@@ -4141,22 +4409,24 @@ int __wlan_hdd_linux_reg_notifier(struct wiphy *wiphy,
        (request->initiator == NL80211_REGDOM_SET_BY_USER))
     {
        if ( pHddCtx->cfg_ini->gEnableStrictRegulatoryForFCC &&
-            wiphy->bands[IEEE80211_BAND_5GHZ])
+            wiphy->bands[HDD_NL80211_BAND_5GHZ])
        {
-          for (j=0; j<wiphy->bands[IEEE80211_BAND_5GHZ]->n_channels; j++)
+          for (j=0; j<wiphy->bands[HDD_NL80211_BAND_5GHZ]->n_channels; j++)
           {
               // UNII-1 band channels are passive when domain is FCC.
-             if ((wiphy->bands[IEEE80211_BAND_5GHZ ]->channels[j].center_freq == 5180 ||
-                  wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5200 ||
-                  wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5220 ||
-                  wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5240) &&
+             if ((wiphy->bands[HDD_NL80211_BAND_5GHZ ]->channels[j].center_freq == 5180 ||
+                  wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5200 ||
+                  wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5220 ||
+                  wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5240) &&
                   ((request->alpha2[0]== 'U'&& request->alpha2[1]=='S') &&
                                 pHddCtx->nEnableStrictRegulatoryForFCC))
              {
-                 wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].flags |= IEEE80211_CHAN_PASSIVE_SCAN;
+                 wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].flags |= IEEE80211_CHAN_PASSIVE_SCAN;
              }
           }
        }
+
+       wlan_hdd_disable_fcc_5600_5640(pHddCtx, wiphy, request);
     }
 do_comp:
     if ((request->initiator == NL80211_REGDOM_SET_BY_DRIVER) ||
@@ -4249,7 +4519,7 @@ VOS_STATUS vos_init_wiphy_from_nv_bin(void)
     temp_reg_domain = cur_reg_domain = reg_domain;
 
     m = 0;
-    for (i = 0; i < IEEE80211_NUM_BANDS; i++)
+    for (i = 0; i < HDD_NUM_NL80211_BANDS; i++)
     {
 
         if (wiphy->bands[i] == NULL)
@@ -4655,7 +4925,7 @@ int __wlan_hdd_crda_reg_notifier(struct wiphy *wiphy,
             settings. iwiphy->bands doesn't seem to set ht40 flags in kernel
             correctly, this may be fixed by later kernel */
 
-         for (i = 0, m = 0; i < IEEE80211_NUM_BANDS; i++)
+         for (i = 0, m = 0; i < HDD_NUM_NL80211_BANDS; i++)
          {
              if (NULL == wiphy->bands[i])
              {
@@ -4680,7 +4950,7 @@ int __wlan_hdd_crda_reg_notifier(struct wiphy *wiphy,
                  // k = (m + j) is internal current channel index for 20MHz channel
                  // n is internal channel index for corresponding 40MHz channel
                  k = m + j;
-                 if (IEEE80211_BAND_2GHZ == i && eCSR_BAND_5G == nBandCapability) // 5G only
+                 if (HDD_NL80211_BAND_2GHZ == i && eCSR_BAND_5G == nBandCapability) // 5G only
                  {
                      // Enable social channels for P2P
                      if ((2412 == wiphy->bands[i]->channels[j].center_freq ||
@@ -4696,7 +4966,7 @@ int __wlan_hdd_crda_reg_notifier(struct wiphy *wiphy,
                      }
                      continue;
                  }
-                 else if (IEEE80211_BAND_5GHZ == i && eCSR_BAND_24 == nBandCapability) // 2G only
+                 else if (HDD_NL80211_BAND_5GHZ == i && eCSR_BAND_24 == nBandCapability) // 2G only
                  {
                      wiphy->bands[i]->channels[j].flags |= IEEE80211_CHAN_DISABLED;
                      continue;
@@ -4752,43 +5022,43 @@ int __wlan_hdd_crda_reg_notifier(struct wiphy *wiphy,
             IOCTL operation is inactive                              */
 
          if ( pHddCtx->cfg_ini->gEnableStrictRegulatoryForFCC &&
-              wiphy->bands[IEEE80211_BAND_5GHZ])
+              wiphy->bands[HDD_NL80211_BAND_5GHZ])
          {
-             for (j=0; j<wiphy->bands[IEEE80211_BAND_5GHZ]->n_channels; j++)
+             for (j=0; j<wiphy->bands[HDD_NL80211_BAND_5GHZ]->n_channels; j++)
              {
                  // UNII-1 band channels are passive when domain is FCC.
-                 if ((wiphy->bands[IEEE80211_BAND_5GHZ ]->channels[j].center_freq == 5180 ||
-                      wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5200 ||
-                      wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5220 ||
-                      wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5240) &&
+                 if ((wiphy->bands[HDD_NL80211_BAND_5GHZ ]->channels[j].center_freq == 5180 ||
+                      wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5200 ||
+                      wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5220 ||
+                      wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5240) &&
                      ((domainIdCurrent == REGDOMAIN_FCC) &&
                                        pHddCtx->nEnableStrictRegulatoryForFCC))
                  {
-                     wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].flags |= IEEE80211_CHAN_PASSIVE_SCAN;
+                     wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].flags |= IEEE80211_CHAN_PASSIVE_SCAN;
                  }
-                 else if ((wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5180 ||
-                           wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5200 ||
-                           wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5220 ||
-                           wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5240) &&
+                 else if ((wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5180 ||
+                           wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5200 ||
+                           wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5220 ||
+                           wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5240) &&
                           ((domainIdCurrent != REGDOMAIN_FCC) ||
                                       !pHddCtx->nEnableStrictRegulatoryForFCC))
                  {
-                     wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].flags &= ~IEEE80211_CHAN_PASSIVE_SCAN;
+                     wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].flags &= ~IEEE80211_CHAN_PASSIVE_SCAN;
                  }
 
                  //Marking channels 52-144 as Radar channels if they are enabled
-                 k = wiphy->bands[IEEE80211_BAND_2GHZ]->n_channels + j;
+                 k = wiphy->bands[HDD_NL80211_BAND_2GHZ]->n_channels + j;
 
-                 if ((wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5260 ||
-                      wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5280 ||
-                      wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5300 ||
-                      wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5320 ||
-                      wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5500 ||
-                      wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].center_freq == 5520) &&
+                 if ((wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5260 ||
+                      wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5280 ||
+                      wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5300 ||
+                      wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5320 ||
+                      wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5500 ||
+                      wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].center_freq == 5520) &&
                      ((regChannels[k].enabled == NV_CHANNEL_ENABLE) ||
                       (regChannels[k].enabled == NV_CHANNEL_DFS)))
                  {
-                     wiphy->bands[IEEE80211_BAND_5GHZ]->channels[j].flags |= IEEE80211_CHAN_RADAR;
+                     wiphy->bands[HDD_NL80211_BAND_5GHZ]->channels[j].flags |= IEEE80211_CHAN_RADAR;
                  }
              }
          }

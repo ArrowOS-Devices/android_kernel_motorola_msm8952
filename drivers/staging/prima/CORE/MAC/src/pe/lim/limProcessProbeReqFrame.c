@@ -169,10 +169,10 @@ void limRemovePBCSessions(tpAniSirGlobal pMac, tSirMacAddr pRemoveMac,tpPESessio
 
     while (pbc) {
         if (vos_mem_compare((tANI_U8 *)pbc->addr,
-                            (tANI_U8 *)pRemoveMac, sizeof(tSirMacAddr))) {
-          prev->next = pbc->next;
-          if (pbc == psessionEntry->pAPWPSPBCSession)
-            psessionEntry->pAPWPSPBCSession = pbc->next;
+            (tANI_U8 *)pRemoveMac, sizeof(tSirMacAddr))) {
+            prev->next = pbc->next;
+            if (pbc == psessionEntry->pAPWPSPBCSession)
+                psessionEntry->pAPWPSPBCSession = pbc->next;
             vos_mem_free(pbc);
             return;
         }
@@ -669,7 +669,7 @@ limIndicateProbeReqToHDD(tpAniSirGlobal pMac, tANI_U8 *pBd,
 
     //send the probe req to SME.
     limSendSmeMgmtFrameInd( pMac, psessionEntry->smeSessionId, pBd,
-                            psessionEntry, 0);
+                            psessionEntry, WDA_GET_RX_RSSI_DB(pBd));
 #ifdef WLAN_FEATURE_P2P_INTERNAL
     limSendP2PProbeResponse(pMac, pBd, psessionEntry);
 #endif
