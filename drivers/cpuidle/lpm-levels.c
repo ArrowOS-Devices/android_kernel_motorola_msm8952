@@ -120,11 +120,6 @@ module_param_named(
 	print_parsed_dt, print_parsed_dt, bool, S_IRUGO | S_IWUSR | S_IWGRP
 );
 
-static int lpm_level_debug_mask;
-module_param_named(
-	debug_mask, lpm_level_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP
-);
-
 s32 msm_cpuidle_get_deep_idle_latency(void)
 {
 	return 10;
@@ -1276,7 +1271,6 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	int idx = cpu_power_select(dev, cluster->cpu, &index);
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
 	struct power_params *pwr_params;
-	struct lpm_cluster_level *level;
 
 	if (idx < 0) {
 		local_irq_enable();
@@ -1299,12 +1293,6 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 
 	cluster_prepare(cluster, cpumask, idx, true);
 	lpm_stats_cpu_enter(idx);
-
-	level = &cluster->parent->levels[cluster->parent->last_level];
-	if ((lpm_level_debug_mask & MSM_LPM_LVL_DBG_IDLE_CLK) &&
-	    !strcmp(level->level_name, "system-cci-pc"))
-		clock_debug_print_enabled();
-
 	if (!use_psci)
 		success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode,
 				true);
