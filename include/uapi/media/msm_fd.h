@@ -13,6 +13,9 @@
 #define __UAPI_MSM_FD__
 
 #include <linux/videodev2.h>
+#ifdef CONFIG_MSMB_CAMERA
+#include <linux/types.h>
+#endif
 
 /*
  * struct msm_fd_event - Structure contain event info.
@@ -66,6 +69,7 @@ struct msm_fd_result {
 	struct msm_fd_face_data __user *face_data;
 };
 
+#ifdef CONFIG_MSMB_CAMERA_2016
 #ifdef CONFIG_COMPAT
 /*
  * struct msm_fd_result32 - Compat structure contain detected faces result.
@@ -84,6 +88,7 @@ struct msm_fd_result32 {
 #define VIDIOC_MSM_FD_GET_RESULT32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct msm_fd_result32)
 #endif
+#endif /* MSMB_CAMERA_2016 */
 
 /* MSM FD private ioctl ID */
 #define VIDIOC_MSM_FD_GET_RESULT \

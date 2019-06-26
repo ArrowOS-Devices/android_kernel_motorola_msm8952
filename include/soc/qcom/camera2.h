@@ -14,7 +14,11 @@
 #ifndef __CAMERA2_H__
 #define __CAMERA2_H__
 
+#ifdef CONFIG_MSMB_CAMERA_2016
 #include <media/msm_cam_sensor_2016.h>
+#else
+#include <media/msm_cam_sensor.h>
+#endif
 #include <linux/interrupt.h>
 #include <linux/of_platform.h>
 #include <linux/of_device.h>
@@ -110,7 +114,12 @@ struct msm_camera_power_ctrl_t {
 	struct msm_cam_clk_info *clk_info;
 	struct msm_pinctrl_info pinctrl_info;
 	uint8_t cam_pinctrl_status;
+#ifdef CONFIG_MSMB_CAMERA
+	struct clk **clk_ptr;
+	size_t clk_info_size;
+#else
 	uint16_t clk_info_size;
+#endif
 };
 
 enum msm_camera_actuator_name {
