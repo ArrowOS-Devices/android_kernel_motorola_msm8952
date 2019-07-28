@@ -108,6 +108,19 @@
 
 #define QWLAN_TXFIR_CFG_DPD_BYPASS_MASK     0x8
 
+/* WLAN_WHITE_LIST - WLAN Radiated Power Test
+For user software build, wlan driver needs to allow the factory
+commnds only for Tx_opcode and NART commands based off 12M doc
+commans whitelisted are :
+set RF channel
+set internal configuration
+enable scpc mode
+set data rate preamble frame number spacinf and playlod
+set Tx Power
+turn on Tx
+turn off Tx */
+#define WLAN_WHITE_LIST
+
 typedef struct {
    tANI_U32 tableSize;                      /* Whole NV Table Size */
    tANI_U32 chunkSize;                      /* Current Chunk Size < 2K */
