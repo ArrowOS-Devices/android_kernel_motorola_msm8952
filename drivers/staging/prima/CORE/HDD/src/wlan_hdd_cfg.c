@@ -5629,8 +5629,6 @@ v_BOOL_t hdd_update_config_dat( hdd_context_t *pHddCtx )
     if (ccmCfgSetInt(pHddCtx->hHal, WNI_CFG_MCAST_BCAST_FILTER_SETTING, pConfig->mcastBcastFilterSetting,
                      NULL, eANI_BOOLEAN_FALSE)==eHAL_STATUS_FAILURE)
     {
-       fStatus = FALSE;
-       hddLog(LOGE,"Failure: Could not pass on WNI_CFG_MCAST_BCAST_FILTER_SETTING configuration info to CCM");
     }
 #endif
 

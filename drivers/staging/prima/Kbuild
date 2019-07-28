@@ -123,7 +123,7 @@ BAP_SRC_DIR :=	$(BAP_DIR)/src
 BAP_INC := 	-I$(WLAN_ROOT)/$(BAP_INC_DIR) \
 		-I$(WLAN_ROOT)/$(BAP_SRC_DIR)
 
-BAP_OBJS := 	$(BAP_SRC_DIR)/bapApiData.o \
+BAP_OBJS := $(BAP_SRC_DIR)/bapApiData.o \
 		$(BAP_SRC_DIR)/bapApiDebug.o \
 		$(BAP_SRC_DIR)/bapApiExt.o \
 		$(BAP_SRC_DIR)/bapApiHCBB.o \
@@ -164,7 +164,7 @@ HDD_SRC_DIR :=	$(HDD_DIR)/src
 HDD_INC := 	-I$(WLAN_ROOT)/$(HDD_INC_DIR) \
 		-I$(WLAN_ROOT)/$(HDD_SRC_DIR)
 
-HDD_OBJS := 	$(HDD_SRC_DIR)/wlan_hdd_assoc.o \
+HDD_OBJS := $(HDD_SRC_DIR)/wlan_hdd_assoc.o \
 		$(HDD_SRC_DIR)/wlan_hdd_cfg.o \
 		$(HDD_SRC_DIR)/wlan_hdd_debugfs.o \
 		$(HDD_SRC_DIR)/wlan_hdd_dev_pwr.o \
@@ -179,7 +179,7 @@ HDD_OBJS := 	$(HDD_SRC_DIR)/wlan_hdd_assoc.o \
 		$(HDD_SRC_DIR)/wlan_hdd_scan.o \
 		$(HDD_SRC_DIR)/wlan_hdd_softap_tx_rx.o \
 		$(HDD_SRC_DIR)/wlan_hdd_tx_rx.o \
-                $(HDD_SRC_DIR)/wlan_hdd_trace.o \
+		$(HDD_SRC_DIR)/wlan_hdd_trace.o \
 		$(HDD_SRC_DIR)/wlan_hdd_wext.o \
 		$(HDD_SRC_DIR)/wlan_hdd_wmm.o \
 		$(HDD_SRC_DIR)/wlan_hdd_wowl.o
@@ -454,10 +454,10 @@ VOSS_OBJS :=    $(VOSS_SRC_DIR)/vos_api.o \
 		$(VOSS_SRC_DIR)/vos_timer.o \
 		$(VOSS_SRC_DIR)/vos_trace.o \
 		$(VOSS_SRC_DIR)/vos_types.o \
-                $(VOSS_SRC_DIR)/vos_utils.o \
-                $(VOSS_SRC_DIR)/wlan_nv_parser.o \
-                $(VOSS_SRC_DIR)/wlan_nv_stream_read.o \
-                $(VOSS_SRC_DIR)/wlan_nv_template_builtin.o
+		$(VOSS_SRC_DIR)/vos_utils.o \
+		$(VOSS_SRC_DIR)/wlan_nv_parser.o \
+		$(VOSS_SRC_DIR)/wlan_nv_stream_read.o \
+		$(VOSS_SRC_DIR)/wlan_nv_template_builtin.o
 
 ifeq ($(BUILD_DIAG_VERSION),1)
 VOSS_OBJS += $(VOSS_SRC_DIR)/vos_diag.o
@@ -607,30 +607,27 @@ CDEFINES :=	-DANI_BUS_TYPE_PLATFORM=1 \
 		-DWLAN_FEATURE_ROAM_SCAN_OFFLOAD \
 		-DWLAN_FEATURE_GTK_OFFLOAD \
 		-DWLAN_WAKEUP_EVENTS \
-	        -DWLAN_KD_READY_NOTIFIER \
+		-DWLAN_KD_READY_NOTIFIER \
 		-DWLAN_FEATURE_RMC \
 		-DWLAN_NL80211_TESTMODE \
 		-DFEATURE_WLAN_BATCH_SCAN \
 		-DFEATURE_WLAN_LPHB \
-                -DFEATURE_WLAN_PAL_TIMER_DISABLE \
-                -DFEATURE_WLAN_PAL_MEM_DISABLE \
-                -DFEATURE_WLAN_CH144 \
-                -DWLAN_DXE_LOW_RESOURCE_TIMER \
-                -DWLAN_LOGGING_SOCK_SVC_ENABLE \
-                -DWLAN_FEATURE_LINK_LAYER_STATS \
-                -DWLAN_FEATURE_EXTSCAN \
-                -DFEATURE_EXT_LL_STAT \
-                -DWLAN_VOWIFI_DEBUG \
+		-DFEATURE_WLAN_PAL_TIMER_DISABLE \
+		-DFEATURE_WLAN_PAL_MEM_DISABLE \
+		-DFEATURE_WLAN_CH144 \
+		-DWLAN_BUG_ON_SKB_ERROR \
+		-DWLAN_DXE_LOW_RESOURCE_TIMER \
+		-DWLAN_LOGGING_SOCK_SVC_ENABLE \
+		-DWLAN_FEATURE_LINK_LAYER_STATS \
+		-DWLAN_FEATURE_EXTSCAN \
+		-DFEATURE_EXT_LL_STAT \
+		-DWLAN_VOWIFI_DEBUG \
 		-DDHCP_SERVER_OFFLOAD \
 		-DWLAN_FEATURE_TSF
 
 ifneq ($(CONFIG_PRONTO_WLAN),)
 CDEFINES += -DWCN_PRONTO
 CDEFINES += -DWCN_PRONTO_V1
-endif
-
-ifeq ($(ENABLE_DRIVER_VERBOSE),1)
-CDEFINES += -DENABLE_DRIVER_VERBOSE
 endif
 
 ifeq ($(BUILD_DEBUG_VERSION),1)
@@ -640,7 +637,7 @@ CDEFINES +=	-DWLAN_DEBUG \
 		-DSME_TRACE_RECORD \
 		-DPE_DEBUG_LOGW \
 		-DPE_DEBUG_LOGE \
-                -DDXE_TRACE \
+		-DDXE_TRACE \
 		-DDEBUG
 endif
 
@@ -677,28 +674,10 @@ endif
 
 ifeq ($(CONFIG_PRIMA_WLAN_LFR),y)
 CDEFINES += -DFEATURE_WLAN_LFR
-#Begin fjdw67 Motorola, IKJB42MAIN-6385 - LFR roaming instrumentation
-CDEFINES += -DFEATURE_WLAN_LFR_METRICS
-#End IKJB42MAIN-6385
 endif
 
 ifeq ($(CONFIG_PRIMA_WLAN_LFR_MBB),y)
 CDEFINES += -DWLAN_FEATURE_LFR_MBB
-endif
-
-# WLAN_WHITE_LIST - WLAN Radiated Power Test
-# For user software build, wlan driver needs to allow the factory
-# commnds only for Tx_opcode and NART commands based off 12M doc
-# commans whitelisted are :
-# set RF channel
-# set internal configuration
-# enable scpc mode
-# set data rate preamble frame number spacinf and playlod
-# set Tx Power
-# turn on Tx
-# turn off Tx
-ifeq ($(TARGET_BUILD_VARIANT),user)
-CDEFINES += -DWLAN_WHITE_LIST
 endif
 
 ifeq ($(CONFIG_PRIMA_WLAN_OKC),y)
@@ -717,9 +696,6 @@ endif
 
 # enable the MAC Address auto-generation feature
 CDEFINES += -DWLAN_AUTOGEN_MACADDR_FEATURE
-
-# Moto read MACs from boot params instead of NV file
-CDEFINES += -DMOTO_UTAGS_MAC
 
 ifeq ($(CONFIG_WLAN_FEATURE_11W),y)
 CDEFINES += -DWLAN_FEATURE_11W
@@ -756,8 +732,6 @@ endif
 
 CDEFINES += -DFEATURE_WLAN_CH_AVOID
 CDEFINES += -DWLAN_FEATURE_AP_HT40_24G
-
-CDEFINES += -DHAVE_CBC_DONE
 
 # Some kernel include files are being moved.  Check to see if
 # the old version of the files are present
