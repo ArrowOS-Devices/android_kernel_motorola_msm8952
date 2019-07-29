@@ -17,7 +17,11 @@ snd-soc-ak4671-objs := ak4671.o
 snd-soc-ak5386-objs := ak5386.o
 snd-soc-arizona-objs := arizona.o
 snd-soc-cq93vc-objs := cq93vc.o
+
+# Suppress switch unreachable warning on cs35l34
+CFLAGS_cs35l34.o := -Wno-switch-unreachable
 snd-soc-cs35l34-objs := cs35l34.o
+
 snd-soc-cs42l51-objs := cs42l51.o
 snd-soc-cs42l52-objs := cs42l52.o
 snd-soc-cs42l73-objs := cs42l73.o
