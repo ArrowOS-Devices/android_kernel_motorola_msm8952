@@ -93,3 +93,4 @@ obj-$(CONFIG_SENSORS_ISL29044A)	+= isl29044a.o
 
 obj-$(CONFIG_STMVL53L0)        += vl53L0/
 obj-$(CONFIG_EPL8802)  += epl8802.o
+obj-$(CONFIG_SENSORS_FPC_1020)  += fpc1020_tee.o
