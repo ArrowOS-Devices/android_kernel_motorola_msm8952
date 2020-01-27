@@ -92,3 +92,8 @@ obj-$(CONFIG_MSM_PACMAN)        += msm_pacman.o
 obj-$(CONFIG_MSM_TEST_PACMAN)        += msm_test_pacman.o
 obj-$(CONFIG_TRACER_PKT) += tracer_pkt.o
 obj-$(CONFIG_MSM_VSENS) += vsens.o
+
+obj-$(CONFIG_BOOTINFO) += bootinfo.o
+obj-$(CONFIG_MMI_SOC_INFO) += mmi_soc_info.o
+obj-$(CONFIG_MMI_RAM_INFO) += mmi-ram-info.o
+obj-$(CONFIG_MMI_UNIT_INFO) += mmi-unit-info.o
