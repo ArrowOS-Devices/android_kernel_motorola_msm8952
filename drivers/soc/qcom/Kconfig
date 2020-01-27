@@ -948,6 +948,14 @@ config WCD_DSP_GLINK
 	   between MSM and WCD DSP over glink transport protocol. This driver
 	   provides read and write interface via char device.
 
+config MMI_DEVICE_DTBS
+	depends on ARCH_MSM
+	default n
+	bool "Motorola Mobility Device DTBs"
+	help
+	 Only include Motorola device specific DTBs to limit the number that
+	 get built during kernel compilation.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM

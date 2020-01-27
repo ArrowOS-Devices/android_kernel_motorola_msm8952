@@ -287,10 +287,18 @@ dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
 	mdm9206-mtp-sdcard.dtb \
 	mdm9206-rcm.dtb
 
+# Do not include QC default DTBs if not needed
+ifneq ($(CONFIG_MMI_DEVICE_DTBS),y)
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-cdp.dtb \
        msm8952-ext-codec-cdp.dtb \
        msm8952-mtp.dtb
+endif # CONFIG_MMI_DEVICE_DTBS
+
+dtb-$(CONFIG_ARCH_MSM8916) += msm8952-athene-p0.dtb \
+	msm8952-athene_16mp-p1.dtb \
+	msm8952-athene_13mp-p1.dtb \
+	msm8952-athene_power-p1.dtb
 
 dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	msm8909-cdp.dtb \
@@ -339,6 +347,12 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	msm8909-1gb-cdp.dtb \
 	apq8009-ext-codec-dragon.dtb \
 	apq8009-dragon.dtb
+
+ifeq ($(CONFIG_MMI_DEVICE_DTBS),y)
+# Add 1k of padding to the DTBs to allow for environment variables
+# to be runtime added by the bootloader (i.e. /chosen properties)
+DTC_FLAGS := -p 1024
+endif
 
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)
