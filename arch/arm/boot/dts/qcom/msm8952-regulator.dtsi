@@ -426,6 +426,13 @@
 								0xffffffff>,
 			<0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff
 								0xffffffff>;
+		cpr-virtual-corner-init-voltage-adjustment =
+			<0 0 0 50000 50000 0 0 0>,
+			<0 0 0 50000 50000 0 0 0>,
+			<0 0 0 50000 50000 0 0 0>,
+			<0 0 0 50000 50000 0 0 0>,
+			<0 0 0 50000 50000 0 0 0>,
+			<0 0 0 50000 50000 0 0 0>;
 		qcom,cpr-virtual-corner-quotient-adjustment =
 			<0 (-124) (-124) (-124) (-132) (-58) (-132) (-132)>,
 			<0    0      0      0      0     0      17    17>,
