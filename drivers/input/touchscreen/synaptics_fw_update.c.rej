@@ -1,0 +1,14 @@
+diff a/drivers/input/touchscreen/synaptics_fw_update.c b/drivers/input/touchscreen/synaptics_fw_update.c	(rejected hunks)
+@@ -864,8 +865,11 @@ static enum flash_area fwu_go_nogo(void)
+ 			goto exit;
+ 		}
+ 
++		max_index = min((ptrdiff_t)(MAX_FIRMWARE_ID_LEN - 1),
++				&fwu->image_name[NAME_BUFFER_SIZE] - strptr);
++		index = 0;
+ 		strptr += 2;
+-		while (strptr[index] >= '0' && strptr[index] <= '9') {
++		while (index < max_index && isdigit(strptr[index])) {
+ 			imagePR[index] = strptr[index];
+ 			index++;
+ 		}
