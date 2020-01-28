@@ -18,6 +18,7 @@
 #include <linux/stringify.h>
 #include <linux/types.h>
 #include <linux/debugfs.h>
+#include <linux/hrtimer.h>
 
 /* panel id type */
 struct panel_id {
@@ -31,6 +32,63 @@ struct panel_id {
 #define MDSS_DSI_RST_SEQ_LEN	10
 /* worst case prefill lines for all chipsets including all vertical blank */
 #define MDSS_MDP_MAX_PREFILL_FETCH 25
+
+#define BRIGHTNESS_HBM_ON	0xFFFFFFFE
+#define BRIGHTNESS_HBM_OFF	(BRIGHTNESS_HBM_ON - 1)
+#define HBM_BRIGHTNESS(value) ((value) == HBM_ON_STATE ?\
+			BRIGHTNESS_HBM_ON : BRIGHTNESS_HBM_OFF)
+/* HBM implementation is different, depending on display and backlight hardware
+ * design, which is classified into the following types:
+ * HBM_TYPE_OLED: OLED panel, HBM is controlled by DSI register only, which
+ *     is independent on brightness.
+ * HBM_TYPE_LCD_DCS_WLED: LCD panel, HBM is controlled by DSI register, and
+ *     brightness is decided by WLED IC on I2C/SPI bus.
+ * HBM_TYPE_LCD_DCS_ONLY: LCD panel, brightness/HBM is controlled by DSI
+ *     register only.
+ * HBM_TYPE_LCD_WLED_ONLY: LCD panel, brightness/HBM is controlled by WLED
+ *     IC only.
+ *
+ * Note: brightness must be at maximum while enabling HBM for all LCD panels
+ */
+#define HBM_TYPE_OLED	0
+#define HBM_TYPE_LCD_DCS_WLED	1
+#define HBM_TYPE_LCD_DCS_ONLY	2
+#define HBM_TYPE_LCD_WLED_ONLY	3
+
+enum hbm_state {
+	HBM_OFF_STATE = 0,
+	HBM_ON_STATE,
+	HBM_STATE_NUM
+};
+
+enum cabc_mode {
+	CABC_UI_MODE = 0,
+	CABC_ST_MODE,
+	CABC_MV_MODE,
+	CABC_DIS_MODE,
+	CABC_OFF_MODE,
+	CABC_MODE_NUM
+};
+
+enum panel_param_id {
+	PARAM_HBM_ID = 0,
+	PARAM_CABC_ID,
+	PARAM_ID_NUM
+};
+
+struct panel_param_val_map {
+	char *name;
+	char *prop;
+};
+
+struct panel_param {
+	const char *param_name;
+	const struct panel_param_val_map *val_map;
+	const u16 val_max;
+	const u16 default_value;
+	u16 value;
+	bool is_supported;
+};
 
 /* panel type list */
 #define NO_PANEL		0xffff	/* No Panel */
@@ -206,6 +264,7 @@ struct mdss_intf_recovery {
  *				the panel.
  * @MDSS_EVENT_PANEL_TIMING_SWITCH: Panel timing switch is requested.
  *				Argument provided is new panel timing.
+ * @MDSS_EVENT_ENABLE_TE: Change TE state, used for factory testing only
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -235,6 +294,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_RECONFIG_CMD,
 	MDSS_EVENT_DSI_RESET_WRITE_PTR,
 	MDSS_EVENT_PANEL_TIMING_SWITCH,
+	MDSS_EVENT_ENABLE_TE,
 };
 
 struct lcd_panel_info {
@@ -570,6 +630,8 @@ struct mdss_panel_info {
 	bool dynamic_switch_pending;
 	bool is_lpm_mode;
 	bool is_split_display;
+	u32 bl_on_defer_delay;
+	struct hrtimer bl_on_defer_hrtimer;
 
 	bool is_prim_panel;
 	bool is_pluggable;
@@ -580,6 +642,9 @@ struct mdss_panel_info {
 	void *cec_data;
 
 	char panel_name[MDSS_MAX_PANEL_LEN];
+	char panel_family_name[MDSS_MAX_PANEL_LEN];
+	u32 panel_ver;
+	char panel_supplier[8];
 	struct mdss_mdp_pp_tear_check te;
 
 	struct dsc_desc dsc;
@@ -592,6 +657,13 @@ struct mdss_panel_info {
 	bool is_dba_panel;
 	/* debugfs structure for the panel */
 	struct mdss_panel_debugfs_info *debugfs_info;
+
+	u32 disp_on_check_val;
+	bool blank_progress_notify_enabled;
+	struct panel_param *param[PARAM_ID_NUM];
+	bool hbm_restore;
+	u32 hbm_type;
+	u32 bl_hbm_off;
 };
 
 struct mdss_panel_timing {
@@ -630,6 +702,7 @@ struct mdss_panel_timing {
 struct mdss_panel_data {
 	struct mdss_panel_info panel_info;
 	void (*set_backlight) (struct mdss_panel_data *pdata, u32 bl_level);
+	int (*set_param)(struct mdss_panel_data *pdata, u16 id, u16 value);
 	unsigned char *mmss_cc_base;
 
 	/**
@@ -651,6 +724,7 @@ struct mdss_panel_data {
 	bool active;
 
 	struct mdss_panel_data *next;
+	struct msm_fb_data_type *mfd;
 };
 
 struct mdss_panel_debugfs_info {
@@ -909,4 +983,25 @@ static inline struct mdss_panel_timing *mdss_panel_get_timing_by_name(
 		struct mdss_panel_data *pdata,
 		const char *name) { return NULL; };
 #endif
+
+static inline bool mdss_panel_param_is_supported(struct mdss_panel_info *p,
+	u16 id)
+{
+	if (id < PARAM_ID_NUM && p && p->param[id] &&
+		p->param[id]->is_supported)
+		return true;
+
+	return false;
+};
+
+static inline bool mdss_panel_param_is_hbm_on(struct mdss_panel_info *p)
+{
+	u16 id = PARAM_HBM_ID;
+
+	if (mdss_panel_param_is_supported(p, id) &&
+		p->param[id]->value == HBM_ON_STATE)
+		return true;
+
+	return false;
+};
 #endif /* MDSS_PANEL_H */
