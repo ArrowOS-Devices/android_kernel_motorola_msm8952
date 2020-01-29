@@ -507,7 +507,7 @@ fail_cmd:
 
 bool q6core_is_adsp_ready(void)
 {
-	int rc;
+	int rc = 0;
 	bool ret = false;
 	struct apr_hdr hdr;
 
