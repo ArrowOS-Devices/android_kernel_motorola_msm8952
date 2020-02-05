@@ -73,4 +73,4 @@ obj-$(CONFIG_UID_SYS_STATS) += uid_sys_stats.o
 obj-$(CONFIG_MOT_UTAG) += utag/
 obj-$(CONFIG_SENSORS_STML0XX) += stml0xx/
 obj-$(CONFIG_ALSA_TO_H2W) += alsa-to-h2w-headset.o
-
+obj-$(CONFIG_SEC_DRIVER) += sec/
