@@ -49,7 +49,7 @@ qcom,mdss-dsi-on-command = [
 	/* CABC Moving Image mode setting */
 	29 00 00 00 00 00 07 BA 07 7A 64 18 30 8D
 	/* Set Max Brightness */
-	15 00 00 00 00 00 02 51 AB
+	15 00 00 00 00 00 02 51 BD
 	/* Set Minimum Brightness */
 	15 00 00 00 00 00 02 5E 00
 	/* BLU control */
@@ -69,7 +69,7 @@ qcom,mdss-dsi-cabc-dis-command = [15 01 00 00 00 00 02 55 00];
 qcom,mdss-dsi-cabc-dis-command-state = "dsi_hs_mode";
 qcom,mdss-dsi-hbm-on-command = [15 01 00 00 00 00 02 51 D6];
 qcom,mdss-dsi-hbm-on-command-state = "dsi_hs_mode";
-qcom,mdss-dsi-hbm-off-command = [15 01 00 00 00 00 02 51 AB];
+qcom,mdss-dsi-hbm-off-command = [15 01 00 00 00 00 02 51 BD];
 qcom,mdss-dsi-hbm-off-command-state = "dsi_hs_mode";
 qcom,mdss-dsi-hbm-type = "lcd-dcs-wled";
 
