@@ -380,6 +380,7 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 	if (pinfo->data_lane0)
 		dsi_ctrl |= BIT(4);
 
+
 	data = 0;
 	if (pinfo->te_sel)
 		data |= BIT(31);
@@ -1149,17 +1150,14 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	 * by the panel. Success value is greater than zero and failure
 	 * case returns zero.
 	 */
-	if (ret == ctrl_pdata->status_cmds_rlen) {
+	if (ret > 0) {
 		if (!mdss_dsi_sync_wait_enable(ctrl_pdata) ||
-			mdss_dsi_sync_wait_trigger(ctrl_pdata)) {
+			mdss_dsi_sync_wait_trigger(ctrl_pdata))
 			ret = ctrl_pdata->check_read_status(ctrl_pdata);
-		}
 		else if (sctrl_pdata)
 			ret = ctrl_pdata->check_read_status(sctrl_pdata);
 	} else {
-		pr_err("%s: Read status register returned error, ret = %d\n",
-			__func__, ret);
-		ret = 0;
+		pr_err("%s: Read status register returned error\n", __func__);
 	}
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
@@ -1670,17 +1668,6 @@ do_send:
 	return len;
 }
 
-static void mdss_dsi_cmd_rx_data_log(struct mdss_dsi_ctrl_pdata *ctrl)
-{
-	pr_warn("%s: read_cnt = %d, DATA3 = 0x%08x, DATA2 = 0x%08x, DATA1 = 0x%08x, DATA0 = 0x%08x\n",
-		__func__,
-		MIPI_INP((ctrl->ctrl_base) + 0x01d4) >> 16,
-		MIPI_INP((ctrl->ctrl_base) + 0x078),
-		MIPI_INP((ctrl->ctrl_base) + 0x074),
-		MIPI_INP((ctrl->ctrl_base) + 0x070),
-		MIPI_INP((ctrl->ctrl_base) + 0x06c));
-}
-
 /* MIPI_DSI_MRPS, Maximum Return Packet Size */
 static char max_pktsize[2] = {0x00, 0x00}; /* LSB tx first, 10 bytes */
 
@@ -1771,14 +1758,6 @@ do_send:
 	while (!end) {
 		pr_debug("%s:  rlen=%d pkt_size=%d rx_byte=%d\n",
 				__func__, rlen, pkt_size, rx_byte);
-		/*
-		 * Skip max_pkt_size dcs cmd if
-		 * its already been configured
-		 * for the requested pkt_size
-		 */
-		if (pkt_size == ctrl->cur_max_pkt_size)
-			goto skip_max_pkt_size;
-
 		max_pktsize[0] = pkt_size;
 		mdss_dsi_buf_init(tp);
 		ret = mdss_dsi_cmd_dma_add(tp, &pkt_size_cmd);
@@ -1805,11 +1784,9 @@ do_send:
 			rp->read_cnt = 0;
 			goto end;
 		}
-		ctrl->cur_max_pkt_size = pkt_size;
 		pr_debug("%s: max_pkt_size=%d sent\n",
 					__func__, pkt_size);
 
-skip_max_pkt_size:
 		mdss_dsi_buf_init(tp);
 		ret = mdss_dsi_cmd_dma_add(tp, cmds);
 		if (!ret) {
@@ -1896,7 +1873,7 @@ skip_max_pkt_size:
 	cmd = rp->data[0];
 	switch (cmd) {
 	case DTYPE_ACK_ERR_RESP:
-		pr_info("%s: rx ACK_ERR_PACKAGE\n", __func__);
+		pr_debug("%s: rx ACK_ERR_PACLAGE\n", __func__);
 		rp->len = 0;
 		rp->read_cnt = 0;
 	case DTYPE_GEN_READ1_RESP:
@@ -1912,8 +1889,7 @@ skip_max_pkt_size:
 		mdss_dsi_long_read_resp(rp);
 		break;
 	default:
-		pr_warn("%s:Invalid response cmd=0x%x\n", __func__, cmd);
-		mdss_dsi_cmd_rx_data_log(ctrl);
+		pr_warning("%s:Invalid response cmd\n", __func__);
 		rp->len = 0;
 		rp->read_cnt = 0;
 	}
@@ -2107,14 +2083,6 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	} else {
 		rp->read_cnt = (max_pktsize[0] + 6);
 	}
-
-	/* Sometimes target/display responds with the MIPI DSI acknowledge
-	 * and Error report after returning MIPI DSI read value, that cause
-	 * mdss_dsi_cmd_dma_rx() fails to parse. Print out all read registers
-	 * to investigate this issue
-	 */
-	if (ack_error && (rx_byte == 4))
-		mdss_dsi_cmd_rx_data_log(ctrl);
 
 	/*
 	 * In case of multiple reads from the panel, after the first read, there
@@ -2370,11 +2338,6 @@ int mdss_dsi_cmdlist_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 				(req->flags & CMD_REQ_DMA_TPG));
 		memcpy(req->rbuf, rp->data, rp->len);
 		ctrl->rx_len = len;
-		if (len != req->rlen) {
-			pr_err("%s: Tried to read %d bytes, actually read %d "
-					"bytes\n", __func__, req->rlen, len);
-			len = 0;
-		}
 	} else {
 		pr_err("%s: No rx buffer provided\n", __func__);
 	}
@@ -2452,7 +2415,7 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 			roi = &pinfo->roi;
 	}
 
-	req = mdss_dsi_cmdlist_get(ctrl, from_mdp);
+	req = mdss_dsi_cmdlist_get(ctrl);
 	if (req && from_mdp && ctrl->burst_mode_enabled) {
 		mutex_lock(&ctrl->cmd_mutex);
 		cmd_mutex_acquired = true;
