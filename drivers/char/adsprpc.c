@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015,2017,2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015,2017-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,9 +129,11 @@ struct smq_invoke_ctx {
 	int tgid;
 	remote_arg_t *lpra;
 	remote_arg64_t *rpra;
+	remote_arg64_t *lrpra;		/* Local copy of rpra for put_args */
 	int *fds;
 	struct fastrpc_mmap **maps;
 	struct fastrpc_buf *buf;
+	struct fastrpc_buf *lbuf;
 	size_t used;
 	struct fastrpc_file *fl;
 	uint32_t sc;
@@ -174,6 +176,7 @@ struct fastrpc_apps {
 	dev_t dev_no;
 	int compat;
 	struct hlist_head drivers;
+        struct ion_client *client;
 	spinlock_t hlock;
 	int32_t domain_id;
 	struct device *adsp_mem_device;
@@ -195,6 +198,7 @@ struct fastrpc_mmap {
 	uintptr_t va;
 	size_t len;
 	int refs;
+        int uncached;
 	uintptr_t raddr;
 	struct ion_handle *handle;
 	struct ion_client *client;
@@ -634,6 +638,7 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	for (i = 0; i < nbufs; ++i)
 		fastrpc_mmap_free(ctx->maps[i]);
 	fastrpc_buf_free(ctx->buf, 1);
+	fastrpc_buf_free(ctx->lbuf, 1);
 	ctx->magic = 0;
 	ctx->ctxid = 0;
 
@@ -744,7 +749,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 
 static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 {
-	remote_arg64_t *rpra;
+	remote_arg64_t *rpra, *lrpra;
 	remote_arg_t *lpra = ctx->lpra;
 	struct smq_invoke_buf *list;
 	struct smq_phy_page *pages, *ipage;
@@ -753,7 +758,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	int outbufs = REMOTE_SCALARS_OUTBUFS(sc);
 	int bufs = inbufs + outbufs;
 	uintptr_t args;
-	size_t rlen = 0, copylen = 0, metalen = 0;
+	size_t rlen = 0, copylen = 0, metalen = 0, lrpralen = 0;
 	int i, inh, oix;
 	int err = 0;
 	int mflags = 0;
@@ -779,7 +784,21 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		ipage += 1;
 	}
 	metalen = copylen = (size_t)&ipage[0];
-	/* calculate len requreed for copying */
+
+	/* allocate new local rpra buffer */
+	lrpralen = (size_t)&list[0];
+	if (lrpralen) {
+		err = fastrpc_buf_alloc(ctx->fl, lrpralen, &ctx->lbuf);
+		if (err)
+			goto bail;
+	}
+	if (ctx->lbuf->virt)
+		memset(ctx->lbuf->virt, 0, lrpralen);
+
+	lrpra = ctx->lbuf->virt;
+	ctx->lrpra = lrpra;
+
+	/* calculate len required for copying */
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		uintptr_t mstart, mend;
@@ -827,13 +846,13 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		ipage++;
 	}
 	/* map ion buffers */
-	for (i = 0; i < inbufs + outbufs; ++i) {
+	for (i = 0; rpra && lrpra && i < inbufs + outbufs; ++i) {
 		struct fastrpc_mmap *map = ctx->maps[i];
 		uint64_t buf = ptr_to_uint64(lpra[i].buf.pv);
 		size_t len = lpra[i].buf.len;
 
-		rpra[i].buf.pv = 0;
-		rpra[i].buf.len = len;
+		rpra[i].buf.pv = lrpra[i].buf.pv = 0;
+		rpra[i].buf.len = lrpra[i].buf.len = len;
 		if (!len)
 			continue;
 		if (map) {
@@ -852,11 +871,11 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 				pages[idx].addr |= STREAM_ID;
 			pages[idx].size = num << PAGE_SHIFT;
 		}
-		rpra[i].buf.pv = buf;
+		rpra[i].buf.pv = lrpra[i].buf.pv = buf;
 	}
 	/* copy non ion buffers */
 	rlen = copylen - metalen;
-	for (oix = 0; oix < inbufs + outbufs; ++oix) {
+	for (oix = 0; rpra && lrpra && oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
 		size_t mlen = ctx->overps[oix]->mend - ctx->overps[oix]->mstart;
@@ -873,7 +892,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		VERIFY(err, rlen >= mlen);
 		if (err)
 			goto bail;
-		rpra[i].buf.pv = (args - ctx->overps[oix]->offset);
+		rpra[i].buf.pv = lrpra[i].buf.pv =
+			 (args - ctx->overps[oix]->offset);
 		pages[list[i].pgidx].addr = ctx->buf->phys -
 					    ctx->overps[oix]->offset +
 					    (copylen - rlen);
@@ -911,9 +931,12 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	}
 	inh = inbufs + outbufs;
 	for (i = 0; i < REMOTE_SCALARS_INHANDLES(sc); i++) {
-		rpra[inh + i].buf.pv = ptr_to_uint64(ctx->lpra[inh + i].buf.pv);
-		rpra[inh + i].buf.len = ctx->lpra[inh + i].buf.len;
-		rpra[inh + i].h = ctx->lpra[inh + i].h;
+		rpra[inh + i].buf.pv = lrpra[inh + i].buf.pv =
+			ptr_to_uint64(ctx->lpra[inh + i].buf.pv);
+		rpra[inh + i].buf.len = lrpra[inh + i].buf.len =
+			ctx->lpra[inh + i].buf.len;
+		rpra[inh + i].h = lrpra[inh + i].h =
+			ctx->lpra[inh + i].h;
 	}
 
  bail:
@@ -924,7 +947,7 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 		    remote_arg_t *upra)
 {
 	uint32_t sc = ctx->sc;
-	remote_arg64_t *rpra = ctx->rpra;
+	remote_arg64_t *rpra = ctx->lrpra;
 	int i, inbufs, outbufs, outh, num;
 	int err = 0;
 
